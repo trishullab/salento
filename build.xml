@@ -1,0 +1,90 @@
+<project name="pliny-soot" default="compile" basedir=".">
+
+  <!-- ===================================== -->
+  <!-- Here alias -->
+  <!-- ===================================== -->
+  <property name="baselib" value="./lib"/>
+  <property name="basesrc" value="./src"/>
+  <property name="basebin" value="./classes"/>
+  <property name="baseout" value="./sootOutput"/>
+  <property environment="env"/>
+  <property name="basedir" value="${env.PLINY_SOOT_HOME}"/>
+
+  <!-- ===================================== -->
+  <!-- Here libraries (*.jar files) -->
+  <!-- ===================================== -->
+  <path id="classpath.core">
+      <pathelement path="${baselib}/jasminclasses-2.5.0.jar" />
+      <pathelement path="${baselib}/java_cup.jar" />
+      <pathelement path="${baselib}/polyglot.jar" />
+      <pathelement path="${baselib}/sootclasses-2.5.0.jar" />
+  </path>
+
+  <!-- =========================================== -->
+  <!-- Create the classes directory                -->
+  <!-- =========================================== -->
+  <target name="init">
+    <tstamp/>
+    <mkdir dir="${basebin}"/>
+  </target>
+
+  <!-- =========================================== -->
+  <!-- Check for updates in src directory          -->
+  <!-- =========================================== -->
+  <target name="updatecheck" depends="init">
+  	<uptodate property="noupdates" targetfile="${basesrc}/.build">
+        <srcfiles dir="${basesrc}/pliny_soot" />
+	</uptodate>
+  </target>
+
+  <!-- =========================================== -->
+  <!-- Compile the source files in pliny package   -->
+  <!-- =========================================== -->
+  <target name="compile"
+  		  depends="updatecheck"
+		  unless="noupdates">
+    <javac srcdir="${basesrc}/pliny_soot"	   
+           destdir="${basebin}"
+           classpathref="classpath.core"
+           debug="false">
+    </javac>
+	<touch file="${basesrc}/.build" />
+  </target>
+
+  <!-- =========================================== -->
+  <!-- Run the main driver in pliny                -->
+  <!-- =========================================== -->
+  <target name="run" 
+	  depends="compile">
+    <java classname="pliny_soot.Driver"
+          classpathref="classpath.core"
+	  failonerror="true" 
+	  fork="true">
+    <arg value="${arg1}"/>
+    <arg value="${arg2}"/>
+    <arg value="${arg3}"/>
+    </java> 
+  </target> 
+
+  <!-- ========================================== -->
+  <!-- Cleanup                                    -->
+  <!-- ========================================== -->
+  <target name="clean">
+    <delete>
+      <fileset dir="${basebin}">
+        <exclude name="**/*.jar"/>
+      </fileset>
+      <fileset dir="${basesrc}">
+	    <include name=".build" />
+	  </fileset>
+    </delete>
+  </target>
+
+   <!-- ========================================== -->
+   <!-- Build the source code distribution (TODO)  -->
+   <!-- ========================================== -->	
+  <target name="dist" depends="clean,compile">
+  </target>
+
+</project>
+

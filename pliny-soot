@@ -1,0 +1,20 @@
+#!/bin/bash
+
+if [ $# -lt 1 ]; then
+    echo "Usage: $0 <dir>"
+    exit
+fi
+
+export sootcp=$PLINY_SOOT_HOME/lib/sootclasses-2.5.0.jar
+export sootcp=$sootcp:$PLINY_SOOT_HOME/lib/jasminclasses-2.5.0.jar
+export sootcp=$sootcp:$PLINY_SOOT_HOME/lib/polyglot.jar
+export sootcp=$sootcp:$PLINY_SOOT_HOME/lib/java_cup.jar
+export sootcp=$sootcp:$JAVA_HOME/jre/lib/rt.jar
+export sootcp=$sootcp:$JAVA_HOME/jre/lib/jce.jar
+
+if [ -d $1 ]; then
+    sootargs="-cp $sootcp:$1 -w -p cg.cha enabled:true -p cg verbose:true -p cg safe-newinstance:true  -p cg safe-forname:true -allow-phantom-refs"
+    java -Xss50m -cp $sootcp:$PLINY_SOOT_HOME/classes pliny_soot.Driver $sootargs -process-dir $1 ${*:2}
+else
+    echo "$1 not found"
+fi
