@@ -1,2 +1,4 @@
 sootOutput
+src/.build
+classes
 *.swp
