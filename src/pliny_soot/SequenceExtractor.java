@@ -4,6 +4,7 @@
 package pliny_soot;
 
 import java.util.*;
+import java.io.*;
 import soot.*;
 
 import soot.toolkits.graph.UnitGraph;
@@ -31,14 +32,14 @@ public class SequenceExtractor extends SceneTransformer
     // maximum number of times a choice point can appear along a path
     // (indirectly, unroll loops MAX_CP-1 times), should be at least 2
     // if loop bodies have to be explored at all
-    private final int MAX_CP = 2;
+    private final int MAX_CP = 5;
 
     // maximum length of sequence
     private final int MAX_LEN = 1000;
 
     // search order
     private enum SearchOrder { DFS, RANDOM }
-    private SearchOrder search = SearchOrder.DFS;
+    private SearchOrder search = SearchOrder.RANDOM;
 
 
 
@@ -74,6 +75,9 @@ public class SequenceExtractor extends SceneTransformer
     // the call graph
     CallGraph callGraph;
 
+    // the output file
+    PrintStream outfile;
+
     private Random rng;
 
     class SequenceExtractorException extends Exception {}
@@ -107,6 +111,19 @@ public class SequenceExtractor extends SceneTransformer
         invokeStack = new Stack<Unit>();
         cfgStack = new Stack<UnitGraph>();
         rng = new Random(System.currentTimeMillis());
+        outfile = System.out;
+    }
+
+    public SequenceExtractor(File f)
+    {
+        this();
+
+        try {
+            this.outfile = new PrintStream(f);
+        } catch (FileNotFoundException e) {
+            System.err.println("Cannot create writable file " + f + ":" + e.getMessage());
+            System.exit(1);
+        }
     }
 
     protected void internalTransform(String phaseName, Map options)
@@ -128,7 +145,7 @@ public class SequenceExtractor extends SceneTransformer
         for (SootMethod rootMethod : roots)
         {
             numSequences = 0;
-            System.out.println("# " + mySignature(rootMethod));
+            outfile.println("# " + mySignature(rootMethod));
 
             Body body = rootMethod.retrieveActiveBody();
             UnitGraph cfg = new BriefUnitGraph(body);
@@ -368,8 +385,8 @@ public class SequenceExtractor extends SceneTransformer
             return;
 
         for (SootMethod m : currSequence)
-            System.out.print(mySignature(m) + " ");
-        System.out.println();
+            outfile.print(mySignature(m) + " ");
+        outfile.println();
         System.out.println("<seq of size " + currSequence.size() + ">");
         numSequences++;
 
