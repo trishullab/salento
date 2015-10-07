@@ -4,6 +4,7 @@
 package pliny_soot;
 
 import java.util.*;
+import java.io.File;
 import soot.*;
 
 import soot.options.Options;
@@ -37,7 +38,21 @@ public class Driver {
         Scene.v().addBasicClass("java.lang.ref.Finalizer",SootClass.SIGNATURES);
 
         Pack wjtp = PackManager.v().getPack("wjtp");
-        wjtp.add(new Transform("wjtp.sequence_extractor", new SequenceExtractor()));
-        soot.Main.main(args);
+        
+        SequenceExtractor seqExt;
+
+        // Java - making you convert an array to a list
+        ArrayList<String> argsList = new ArrayList<String>(Arrays.asList(args));
+        if (argsList.contains("-pliny-soot-outfile"))
+        {
+            String outfile = argsList.remove(argsList.indexOf("-pliny-soot-outfile")+1);
+            seqExt = new SequenceExtractor(new File(outfile));
+            argsList.remove("-pliny-soot-outfile");
+        }
+        else
+            seqExt = new SequenceExtractor();
+
+        wjtp.add(new Transform("wjtp.sequence_extractor", seqExt));
+        soot.Main.main(argsList.toArray(new String[0]));
     }
 }
