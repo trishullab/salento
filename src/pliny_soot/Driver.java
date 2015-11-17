@@ -27,8 +27,8 @@ public class Driver {
 
     public void runDriver()
     {
-        Options.v().set_src_prec(Options.src_prec_class);
-        Options.v().set_output_format(Options.output_format_class);
+        Options.v().set_src_prec(Options.src_prec_apk);
+        Options.v().set_output_format(Options.output_format_dex);
 
         Scene.v().addBasicClass("java.io.PrintStream",SootClass.SIGNATURES);
         Scene.v().addBasicClass("java.lang.System",SootClass.SIGNATURES);
@@ -37,7 +37,7 @@ public class Driver {
         Scene.v().addBasicClass("java.lang.ClassLoader",SootClass.SIGNATURES);
         Scene.v().addBasicClass("java.lang.ref.Finalizer",SootClass.SIGNATURES);
 
-        Pack wjtp = PackManager.v().getPack("wjtp");
+        Pack jtp = PackManager.v().getPack("jtp");
         
         SequenceExtractor seqExt;
 
@@ -52,7 +52,7 @@ public class Driver {
         else
             seqExt = new SequenceExtractor();
 
-        wjtp.add(new Transform("wjtp.sequence_extractor", seqExt));
+        jtp.add(new Transform("jtp.sequence_extractor", seqExt));
         soot.Main.main(argsList.toArray(new String[0]));
     }
 }

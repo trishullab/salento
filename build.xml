@@ -17,7 +17,7 @@
       <pathelement path="${baselib}/jasminclasses-2.5.0.jar" />
       <pathelement path="${baselib}/java_cup.jar" />
       <pathelement path="${baselib}/polyglot.jar" />
-      <pathelement path="${baselib}/sootclasses-2.5.0.jar" />
+      <pathelement path="${baselib}/soot-trunk.jar" />
   </path>
 
   <!-- =========================================== -->

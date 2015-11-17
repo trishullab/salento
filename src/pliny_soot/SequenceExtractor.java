@@ -19,7 +19,7 @@ import soot.jimple.ReturnVoidStmt;
 import soot.jimple.toolkits.callgraph.CallGraph;
 import soot.jimple.toolkits.callgraph.Edge;
 
-public class SequenceExtractor extends SceneTransformer
+public class SequenceExtractor extends BodyTransformer
 {
 
     // <------------------------------------------------->
@@ -27,7 +27,7 @@ public class SequenceExtractor extends SceneTransformer
     // <------------------------------------------------->
 
     // maximum number of sequences from components
-    private final int MAX_SEQS = 10000;
+    private final int MAX_SEQS = 100;
 
     // maximum number of times a choice point can appear along a path
     // (indirectly, unroll loops MAX_CP-1 times), should be at least 2
@@ -55,16 +55,6 @@ public class SequenceExtractor extends SceneTransformer
     // number of loop unrolls (see MAX_CP)
     private Stack<Unit> currChoicePoints;
     
-    // synchronized stacks storing the return Unit to jump to and its
-    // corresponding method's CFG respectively, saved and restored during
-    // backtracking. NOT storing the sequence of API calls, that's done by 
-    // currSequence above.
-    private Stack<Unit> invokeStack;
-    private Stack<UnitGraph> cfgStack;
-
-    // the current root of component being analyzed
-    private SootMethod currRoot;
-
     // all application methods, used to check if we should add an invocation
     // to the sequence (API) or step into it (application)
     private List<SootMethod> appMethods;
@@ -72,8 +62,8 @@ public class SequenceExtractor extends SceneTransformer
     // number of sequences from each component
     private int numSequences = 0;
 
-    // the call graph
-    CallGraph callGraph;
+    // total number of sequences
+    private static int totalSequences = 0;
 
     // the output file
     PrintStream outfile;
@@ -108,8 +98,6 @@ public class SequenceExtractor extends SceneTransformer
     {
         currSequence = new Stack<SootMethod>();
         currChoicePoints = new Stack<Unit>();
-        invokeStack = new Stack<Unit>();
-        cfgStack = new Stack<UnitGraph>();
         rng = new Random(System.currentTimeMillis());
         outfile = System.out;
     }
@@ -126,50 +114,36 @@ public class SequenceExtractor extends SceneTransformer
         }
     }
 
-    protected void internalTransform(String phaseName, Map options)
+    protected void internalTransform(Body body, String phaseName, Map options)
     {
         System.out.println("Sequence extractor phase: " + phaseName);
 
         appMethods = EntryPoints.v().methodsOfApplicationClasses();
 
-        callGraph = Scene.v().getCallGraph();
-        Set<SootMethod> roots = new HashSet<SootMethod>();
+        SootMethod rootMethod = body.getMethod();
+        numSequences = 0;
+        outfile.println("# " + mySignature(rootMethod));
 
-        for (SootMethod m : appMethods)
-        {
-            if (!callGraph.edgesInto(m).hasNext())
-                roots.add(m);
+        UnitGraph cfg = new BriefUnitGraph(body);
+        Unit head = body.getUnits().getFirst();
+
+        try {
+            extractSequences(head, cfg);
+        } catch (SequenceLimitException e) {
+            // carry on with the remaining components
+        } catch (SequenceLengthException e) {
+            System.err.println("too big sequence");
+            System.exit(1);
+        } catch (MaxChoicePointException e) {
+            System.err.println("nobody handled max cp of " + e.getChoicePoint());
+            System.exit(1);
+        } catch (SequenceExtractorException e) {
+            System.err.println("something is wrong.." + e.getMessage());
+            System.exit(1);
         }
 
-        int totalSequences = 0;
-        for (SootMethod rootMethod : roots)
-        {
-            numSequences = 0;
-            outfile.println("# " + mySignature(rootMethod));
-
-            Body body = rootMethod.retrieveActiveBody();
-            UnitGraph cfg = new BriefUnitGraph(body);
-            Unit head = body.getUnits().getFirst();
-
-            currRoot = rootMethod;
-            try {
-                extractSequences(head, cfg);
-            } catch (SequenceLimitException e) {
-                // carry on with the remaining components
-            } catch (SequenceLengthException e) {
-                System.err.println("too big sequence");
-                System.exit(1);
-            } catch (MaxChoicePointException e) {
-                System.err.println("nobody handled max cp of " + e.getChoicePoint());
-                System.exit(1);
-            } catch (SequenceExtractorException e) {
-                System.err.println("something is wrong.." + e.getMessage());
-                System.exit(1);
-            }
-
-            totalSequences += numSequences;
-            System.out.println("Sub total sequences: " + numSequences);
-        }
+        totalSequences += numSequences;
+        System.out.println("Sub total sequences: " + numSequences);
 
         System.out.println("Total sequences: " + totalSequences);
     }
@@ -203,13 +177,7 @@ public class SequenceExtractor extends SceneTransformer
         if  (stmt instanceof ReturnStmt || stmt instanceof ReturnVoidStmt)
         {
             assert succs.size() == 0;
-            if (invokeStack.size() == 0) // terminal
-            {
-                assert cfgStack.size() == 0;
-                handleTerminal();
-            }
-            else
-                extractSequences(invokeStack.pop(), cfgStack.pop());
+            handleTerminal();
             return;
         }
 
@@ -232,10 +200,6 @@ public class SequenceExtractor extends SceneTransformer
                 throw new MaxChoicePointException(stmt);
             }
 
-            // save the invoke stack at this point
-            Stack<Unit> invokeStackAtThisPoint = (Stack<Unit>) invokeStack.clone();
-            Stack<UnitGraph> cfgStackAtThisPoint = (Stack<UnitGraph>) cfgStack.clone();
-
             List<Unit> mySuccs = new ArrayList<Unit>(succs);
 
             if (search == SearchOrder.RANDOM)
@@ -244,10 +208,6 @@ public class SequenceExtractor extends SceneTransformer
             for (Unit succ : mySuccs)
             {
                 currChoicePoints.push(stmt);
-
-                // restore the invoke stack before making a new choice of succ
-                invokeStack = (Stack<Unit>) invokeStackAtThisPoint.clone();
-                cfgStack = (Stack<UnitGraph>) cfgStackAtThisPoint.clone();
 
                 try {
                     extractSequences(succ, cfg);
@@ -289,50 +249,9 @@ public class SequenceExtractor extends SceneTransformer
     private void handleInvoke(Stmt stmt, UnitGraph cfg) 
         throws SequenceExtractorException
     {
-        // save the invoke stack
-        Stack<Unit> invokeStackAtThisPoint = (Stack<Unit>) invokeStack.clone();
-        Stack<UnitGraph> cfgStackAtThisPoint = (Stack<UnitGraph>) cfgStack.clone();
-
         SootMethod callee = stmt.getInvokeExpr().getMethod();
 
-        // callee is an application method
-        if (appMethods.contains(callee))
-        {
-            // get a set of potential callees from the call graph
-            SootMethod caller = cfg.getBody().getMethod();
-            Set<SootMethod> potentialCallees = new HashSet<SootMethod>();
-            Iterator<Edge> edgesOut = callGraph.edgesOutOf(caller);
-
-            while (edgesOut.hasNext())
-            {
-                Edge e = edgesOut.next();
-                if (e.srcStmt() == stmt)
-                    potentialCallees.add(e.tgt());
-            }
-
-            // conservatively extract sequences from each potential callee
-            for (SootMethod potentialCallee : potentialCallees)
-            {
-                // restore the invoke stack before doing it
-                invokeStack = (Stack<Unit>) invokeStackAtThisPoint.clone();
-                cfgStack = (Stack<UnitGraph>) cfgStackAtThisPoint.clone();
-
-                handleInvokeCallee(potentialCallee, stmt, cfg);
-            }
-        }
-        else // otherwise it's just an API call
-        {
-            invokeStack = (Stack<Unit>) invokeStackAtThisPoint.clone();
-            cfgStack = (Stack<UnitGraph>) cfgStackAtThisPoint.clone();
-
-            handleInvokeCallee(callee, stmt, cfg);
-        }
-    }
-
-    private void handleInvokeCallee(SootMethod callee, Stmt stmt, UnitGraph cfg) 
-        throws SequenceExtractorException
-    {
-        if (!appMethods.contains(callee)) { // not an application method
+        if (isAndroidMethod(callee)) { // not an application method
             if (currSequence.size() == MAX_LEN) {
                 throw new SequenceLengthException();
             }
@@ -347,26 +266,16 @@ public class SequenceExtractor extends SceneTransformer
                 currSequence.pop();
             }
         }
-        else // otherwise step into the application method
+        else // otherwise step over the statement
         {
-            Body body = callee.retrieveActiveBody();
-            UnitGraph calleeCfg = new BriefUnitGraph(body);
-            Unit head = body.getUnits().getFirst();
-
-            List<Unit> succs = cfg.getSuccsOf(stmt);
-            assert succs.size() <= 1;
-            if (succs.size() == 1)
-            {
-                invokeStack.push(succs.get(0));
-                cfgStack.push(cfg);
-            }
-
-            try {
-                extractSequences(head, calleeCfg);
-            } finally {
-                // put whatever code to be executed after extractSequences here
-            }
+            extractSequences(stmt, cfg, false);
         }
+    }
+
+    private boolean isAndroidMethod(SootMethod m)
+    {
+        SootClass cl = m.getDeclaringClass();
+        return Scene.v().quotedNameOf(cl.getName()).startsWith("android");
     }
 
     private int countChoicePointOccurrence(Unit cpstmt)
