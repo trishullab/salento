@@ -15,6 +15,7 @@ import soot.jimple.GotoStmt;
 import soot.jimple.InvokeStmt;
 import soot.jimple.ReturnStmt;
 import soot.jimple.ReturnVoidStmt;
+import soot.jimple.ThrowStmt;
 
 import soot.jimple.toolkits.callgraph.CallGraph;
 import soot.jimple.toolkits.callgraph.Edge;
@@ -28,11 +29,6 @@ public class SequenceExtractor extends BodyTransformer
 
     // maximum number of sequences from components
     private final int MAX_SEQS = 100;
-
-    // maximum number of times a choice point can appear along a path
-    // (indirectly, unroll loops MAX_CP-1 times), should be at least 2
-    // if loop bodies have to be explored at all
-    private final int MAX_CP = 5;
 
     // maximum length of sequence
     private final int MAX_LEN = 1000;
@@ -51,9 +47,45 @@ public class SequenceExtractor extends BodyTransformer
     // current sequence of API calls extracted
     private Stack<SootMethod> currSequence;
 
-    // sequence of choice points along the current path, used to bound the
-    // number of loop unrolls (see MAX_CP)
-    private Stack<Unit> currChoicePoints;
+    // sequence of choice points along the current path with the choice of
+    // succ that was made
+    class ChoicePoint
+    {
+        Unit point;
+        Unit choice;
+        List<Unit> otherChoices;
+
+        public ChoicePoint(Unit point, Unit succ, List<Unit> otherSuccs)
+        {
+            this.point = point;
+            this.choice = succ;
+            this.otherChoices = otherSuccs;
+        }
+
+        public Unit getChoicePoint() {
+            return point;
+        }
+        public Unit getChoice() {
+            return choice;
+        }
+        public List<Unit> getOtherChoices() {
+            return otherChoices;
+        }
+
+        public boolean equals(Object o)
+        {
+            if (this == o) return true;
+            if (o == null || o.getClass() != this.getClass()) return false;
+            ChoicePoint cp = (ChoicePoint) o;
+            return this.point == cp.getChoicePoint();
+        }
+
+        public int hashCode()
+        {
+            return this.point.hashCode();
+        }
+    }
+    private Stack<ChoicePoint> currChoicePoints;
     
     // all application methods, used to check if we should add an invocation
     // to the sequence (API) or step into it (application)
@@ -65,8 +97,14 @@ public class SequenceExtractor extends BodyTransformer
     // total number of sequences
     private static int totalSequences = 0;
 
+    // total number of LOC
+    private static int totalLOC = 0;
+
     // the output file
     PrintStream outfile;
+
+    // start time for this method
+    private long startTime;
 
     private Random rng;
 
@@ -76,19 +114,8 @@ public class SequenceExtractor extends BodyTransformer
 
     class SequenceLengthException extends SequenceExtractorException {}
 
-    class MaxChoicePointException extends SequenceExtractorException
-    {
-        private Stmt offendingChoicePoint;
-        public MaxChoicePointException (Stmt stmt)
-        {
-            this.offendingChoicePoint = stmt;
-        }
+    class TimeoutException extends SequenceExtractorException {}
 
-        public Stmt getChoicePoint()
-        {
-            return offendingChoicePoint;
-        }
-    }
 
 
 
@@ -97,7 +124,7 @@ public class SequenceExtractor extends BodyTransformer
     public SequenceExtractor()
     {
         currSequence = new Stack<SootMethod>();
-        currChoicePoints = new Stack<Unit>();
+        currChoicePoints = new Stack<ChoicePoint>();
         rng = new Random(System.currentTimeMillis());
         outfile = System.out;
     }
@@ -116,27 +143,34 @@ public class SequenceExtractor extends BodyTransformer
 
     protected void internalTransform(Body body, String phaseName, Map options)
     {
-        System.out.println("Sequence extractor phase: " + phaseName);
+        SootMethod rootMethod = body.getMethod();
+        String packageName = rootMethod.getDeclaringClass().getPackageName();
+        if (packageName.startsWith("android.") || packageName.startsWith("com.google."))
+            return;
+
+        int LOC = body.getUnits().size();
+        System.out.println("Sequence extractor phase: " + phaseName + ". Analyzing method " +
+                mySignature(rootMethod) + ". #instructions: " + LOC);
+        totalLOC += LOC;
 
         appMethods = EntryPoints.v().methodsOfApplicationClasses();
 
-        SootMethod rootMethod = body.getMethod();
         numSequences = 0;
         outfile.println("# " + mySignature(rootMethod));
 
         UnitGraph cfg = new BriefUnitGraph(body);
         Unit head = body.getUnits().getFirst();
 
+        startTime = System.currentTimeMillis() / 1000L;
+
         try {
             extractSequences(head, cfg);
         } catch (SequenceLimitException e) {
-            // carry on with the remaining components
+            System.err.println("sequence limit (" + MAX_SEQS + ") reached");
         } catch (SequenceLengthException e) {
             System.err.println("too big sequence");
-            System.exit(1);
-        } catch (MaxChoicePointException e) {
-            System.err.println("nobody handled max cp of " + e.getChoicePoint());
-            System.exit(1);
+        } catch (TimeoutException e) {
+            System.err.println("TIMEOUT");
         } catch (SequenceExtractorException e) {
             System.err.println("something is wrong.." + e.getMessage());
             System.exit(1);
@@ -146,6 +180,7 @@ public class SequenceExtractor extends BodyTransformer
         System.out.println("Sub total sequences: " + numSequences);
 
         System.out.println("Total sequences: " + totalSequences);
+        System.out.println("Total LOC: " + totalLOC);
     }
 
     private void extractSequences(Unit stmt, UnitGraph cfg)
@@ -157,6 +192,10 @@ public class SequenceExtractor extends BodyTransformer
     private void extractSequences(Unit ustmt, UnitGraph cfg, boolean invokeCheck)
         throws SequenceExtractorException
     {
+        // some misbehaving case
+        if (numSequences == 0 && System.currentTimeMillis() / 1000L - startTime > 5)
+            throw new TimeoutException();
+
         Stmt stmt;
         try {
             // since we are in jimple this cast should be safe
@@ -174,14 +213,15 @@ public class SequenceExtractor extends BodyTransformer
 
         List<Unit> succs = cfg.getSuccsOf(stmt);
 
-        if  (stmt instanceof ReturnStmt || stmt instanceof ReturnVoidStmt)
+        if  (stmt instanceof ReturnStmt || stmt instanceof ReturnVoidStmt
+                || stmt instanceof ThrowStmt)
         {
-            assert succs.size() == 0;
+            assert succs.size() == 0 : "more than one succ for return";
             handleTerminal();
             return;
         }
 
-        assert succs.size() > 0;
+        assert succs.size() > 0 : "empty succs list for " + stmt + " when stmt is not a return";
 
         if (succs.size() == 1) // no choice point
         {
@@ -192,36 +232,30 @@ public class SequenceExtractor extends BodyTransformer
         }
         else
         {
-            // If we have reached the maximum number of times this choice point
-            // is allowed along a path, throw exception! In case of normal loops, 
-            // this will bound the number of unrolls. In case of infinite loops,
-            // this will not produce a sequence, as is to be expected.
-            if (countChoicePointOccurrence(stmt) == MAX_CP) {
-                throw new MaxChoicePointException(stmt);
-            }
+            Unit succ;
+            List<Unit> choices;
+            int idx = getLastChoicePoint(stmt);
+            if (idx != -1) // already made a choice, now make one of the other choices
+                choices = currChoicePoints.get(idx).getOtherChoices();
+            else
+                choices = succs;
 
-            List<Unit> mySuccs = new ArrayList<Unit>(succs);
+            if (choices.size() == 0)
+                return;
 
+            List<Unit> choices_arr = new ArrayList<Unit>(choices);
             if (search == SearchOrder.RANDOM)
-                Collections.shuffle(mySuccs, rng);
+                Collections.shuffle(choices_arr, rng);
 
-            for (Unit succ : mySuccs)
+            while (choices_arr.size() > 0)
             {
-                currChoicePoints.push(stmt);
+                succ = choices_arr.remove(0); // mutates the list
 
-                try {
-                    extractSequences(succ, cfg);
-                } catch (MaxChoicePointException e) {
-                    Stmt offendingChoicePoint = e.getChoicePoint();
+                assert succ != null : "succ is null";
 
-                    // keep throwing if this stmt didn't start the original throw
-                    if (offendingChoicePoint != stmt)
-                        throw e;
-                } finally {
-                    // code here should always be exectued after extractSequences
-                    // returns, regardless of exception
-                    currChoicePoints.pop();
-                }
+                currChoicePoints.push(new ChoicePoint(stmt, succ, new ArrayList<Unit>(choices_arr)));
+                extractSequences(succ, cfg);
+                currChoicePoints.pop();
             }
         }
     }
@@ -231,19 +265,14 @@ public class SequenceExtractor extends BodyTransformer
     private void handleGoto(Stmt stmt, UnitGraph cfg)
         throws SequenceExtractorException
     {
-        if (countChoicePointOccurrence(stmt) == MAX_CP)
-            throw new MaxChoicePointException(stmt);
-        
-        currChoicePoints.push(stmt);
-        try {
-            extractSequences(cfg.getSuccsOf(stmt).get(0), cfg);
-        } catch (MaxChoicePointException e) {
-            Stmt offendingChoicePoint = e.getChoicePoint();
-            if (offendingChoicePoint != stmt)
-                throw e;
-        } finally {
-            currChoicePoints.pop();
-        }
+        int idx = getLastChoicePoint(stmt);
+        if (idx != -1) // already encountered this goto, don't expand it again
+            return;
+
+        Unit succ = cfg.getSuccsOf(stmt).get(0);
+        currChoicePoints.push(new ChoicePoint(stmt, succ, null));
+        extractSequences(succ, cfg);
+        currChoicePoints.pop();
     }
 
     private void handleInvoke(Stmt stmt, UnitGraph cfg) 
@@ -278,13 +307,12 @@ public class SequenceExtractor extends BodyTransformer
         return Scene.v().quotedNameOf(cl.getName()).startsWith("android");
     }
 
-    private int countChoicePointOccurrence(Unit cpstmt)
+    private int getLastChoicePoint(Stmt stmt)
     {
-        int cnt = 0;
-        for (Unit stmt : currChoicePoints)
-            if (stmt == cpstmt)
-                cnt++;
-        return cnt;
+        for (int i = currChoicePoints.size() - 1; i >= 0; i--)
+            if (currChoicePoints.get(i).getChoicePoint() == stmt)
+                return i;
+        return -1;
     }
 
     private void handleTerminal() 

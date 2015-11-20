@@ -16,4 +16,4 @@ export androidcp=$ANDROID_HOME/platforms/android-20/android.jar
 export androidcp=$androidcp:$ANDROID_HOME/extras/android/support/v4/android-support-v4.jar
 
 sootargs="-cp $sootcp:$androidcp:$1 -allow-phantom-refs"
-java -Xss50m -cp $sootcp:$PLINY_SOOT_HOME/classes pliny_soot.Driver $sootargs -process-dir $1 ${*:2}
+java -ea -Xss50m -cp $sootcp:$PLINY_SOOT_HOME/classes pliny_soot.Driver $sootargs -process-dir $1 ${*:2}
