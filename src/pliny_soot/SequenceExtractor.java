@@ -1,4 +1,3 @@
-/* The sequence extractor, implemented as a SceneTransformer */
 /* Author: Vijay Murali */
 
 package pliny_soot;
@@ -20,117 +19,50 @@ import soot.jimple.ThrowStmt;
 import soot.jimple.toolkits.callgraph.CallGraph;
 import soot.jimple.toolkits.callgraph.Edge;
 
+/** The sequence extractor, implemented as a SceneTransformer */
 public class SequenceExtractor extends BodyTransformer
 {
+    /** List of paths explored */
+    private List<Path> paths;
 
-    // <------------------------------------------------->
-    // <---------- configurable options ----------------->
-    // <------------------------------------------------->
-
-    // maximum number of sequences from components
-    private final int MAX_SEQS = 100;
-
-    // maximum length of sequence
-    private final int MAX_LEN = 1000;
-
-    // search order
-    private enum SearchOrder { DFS, RANDOM }
-    private SearchOrder search = SearchOrder.RANDOM;
-
-
-
-
-
-
-
-
-    // current sequence of API calls extracted
-    private Stack<SootMethod> currSequence;
-
-    // sequence of choice points along the current path with the choice of
-    // succ that was made
-    class ChoicePoint
-    {
-        Unit point;
-        Unit choice;
-        List<Unit> otherChoices;
-
-        public ChoicePoint(Unit point, Unit succ, List<Unit> otherSuccs)
-        {
-            this.point = point;
-            this.choice = succ;
-            this.otherChoices = otherSuccs;
-        }
-
-        public Unit getChoicePoint() {
-            return point;
-        }
-        public Unit getChoice() {
-            return choice;
-        }
-        public List<Unit> getOtherChoices() {
-            return otherChoices;
-        }
-
-        public boolean equals(Object o)
-        {
-            if (this == o) return true;
-            if (o == null || o.getClass() != this.getClass()) return false;
-            ChoicePoint cp = (ChoicePoint) o;
-            return this.point == cp.getChoicePoint();
-        }
-
-        public int hashCode()
-        {
-            return this.point.hashCode();
-        }
-    }
-    private Stack<ChoicePoint> currChoicePoints;
-    
-    // all application methods, used to check if we should add an invocation
-    // to the sequence (API) or step into it (application)
+    /** All application methods, used to check if we should add an invocation
+     * to the sequence (API) or step into it (application) */
     private List<SootMethod> appMethods;
 
-    // number of sequences from each component
-    private int numSequences = 0;
+    /** Number of sequences from each component */
+    private int numSequences;
 
-    // total number of sequences
-    private static int totalSequences = 0;
+    /** Total number of sequences */
+    private int totalSequences;
 
-    // total number of LOC
-    private static int totalLOC = 0;
+    /** Total number of LOC */
+    private int totalLOC;
 
-    // the output file
+    /** The output file */
     PrintStream outfile;
 
-    // start time for this method
+    /** Start time for this method */
     private long startTime;
 
     private Random rng;
 
     class SequenceExtractorException extends Exception {}
 
-    class SequenceLimitException extends SequenceExtractorException {}
-
     class SequenceLengthException extends SequenceExtractorException {}
 
     class TimeoutException extends SequenceExtractorException {}
 
 
-
-
-
-
-    public SequenceExtractor()
-    {
-        currSequence = new Stack<SootMethod>();
-        currChoicePoints = new Stack<ChoicePoint>();
+    public SequenceExtractor() {
+        totalSequences = 0;
+        totalLOC = 0;
+        paths = new ArrayList<Path>();
         rng = new Random(System.currentTimeMillis());
         outfile = System.out;
+        appMethods = EntryPoints.v().methodsOfApplicationClasses();
     }
 
-    public SequenceExtractor(File f)
-    {
+    public SequenceExtractor(File f) {
         this();
 
         try {
@@ -141,39 +73,43 @@ public class SequenceExtractor extends BodyTransformer
         }
     }
 
-    protected void internalTransform(Body body, String phaseName, Map options)
-    {
+    protected void internalTransform(Body body, String phaseName, Map options) {
         SootMethod rootMethod = body.getMethod();
         String packageName = rootMethod.getDeclaringClass().getPackageName();
-        if (packageName.startsWith("android.") || packageName.startsWith("com.google."))
+        if (! Util.canExtractSequences(packageName))
             return;
 
         int LOC = body.getUnits().size();
-        System.out.println("Sequence extractor phase: " + phaseName + ". Analyzing method " +
-                mySignature(rootMethod) + ". #instructions: " + LOC);
         totalLOC += LOC;
 
-        appMethods = EntryPoints.v().methodsOfApplicationClasses();
+        System.out.println("Extracting sequences from " + Util.mySignature(rootMethod));
+        System.out.println("#instructions: " + LOC);
 
         numSequences = 0;
-        outfile.println("# " + mySignature(rootMethod));
+        outfile.println("# " + Util.mySignature(rootMethod));
 
         UnitGraph cfg = new BriefUnitGraph(body);
         Unit head = body.getUnits().getFirst();
 
-        startTime = System.currentTimeMillis() / 1000L;
-
-        try {
-            extractSequences(head, cfg);
-        } catch (SequenceLimitException e) {
-            System.err.println("sequence limit (" + MAX_SEQS + ") reached");
-        } catch (SequenceLengthException e) {
-            System.err.println("too big sequence");
-        } catch (TimeoutException e) {
-            System.err.println("TIMEOUT");
-        } catch (SequenceExtractorException e) {
-            System.err.println("something is wrong.." + e.getMessage());
-            System.exit(1);
+        int infinite_loop = 0;
+        for (int i = 0; i < Options.MAX_SEQS; i++) {
+            startTime = System.currentTimeMillis() / 1000L;
+            try {
+                extractSequence(head, cfg, new History(), new Path());
+            } catch (SequenceLengthException e) {
+                System.err.println("too big sequence");
+            } catch (TimeoutException e) {
+                System.err.println("TIMEOUT");
+            } catch (SequenceExtractorException e) {
+                System.err.println("uncaught exception");
+                System.exit(1);
+            } catch (StackOverflowError e) {
+                System.err.println("infinite loop"); /* most likely */
+                if (infinite_loop > 10)
+                    return;
+                infinite_loop++;
+                continue;
+            }
         }
 
         totalSequences += numSequences;
@@ -183,166 +119,81 @@ public class SequenceExtractor extends BodyTransformer
         System.out.println("Total LOC: " + totalLOC);
     }
 
-    private void extractSequences(Unit stmt, UnitGraph cfg)
-        throws SequenceExtractorException
-    {
-        extractSequences(stmt, cfg, true);
+    private void extractSequence(Unit stmt, UnitGraph cfg, History his, Path p) throws SequenceExtractorException {
+        extractSequence(stmt, cfg, his, p, true);
     }
 
-    private void extractSequences(Unit ustmt, UnitGraph cfg, boolean invokeCheck)
-        throws SequenceExtractorException
-    {
-        // some misbehaving case
-        if (numSequences == 0 && System.currentTimeMillis() / 1000L - startTime > 5)
+    private void extractSequence(Unit ustmt, UnitGraph cfg, History his, Path p, boolean invokeCheck)
+        throws SequenceExtractorException {
+        /* misbehaving cases */
+        if (System.currentTimeMillis() / 1000L - startTime > 5)
             throw new TimeoutException();
 
         Stmt stmt;
         try {
-            // since we are in jimple this cast should be safe
+            /* since we are in jimple this cast should be safe */
             stmt = (Stmt) ustmt;
         } catch (ClassCastException e) {
             System.err.println(e.getMessage());
             throw e;
         }
 
-        if (invokeCheck && stmt.containsInvokeExpr())
-        {
-            handleInvoke(stmt, cfg); // mutually recursive
+        if (invokeCheck && stmt.containsInvokeExpr()) {
+            handleInvoke(stmt, cfg, his, p); /* mutually recursive */
             return;
         }
 
         List<Unit> succs = cfg.getSuccsOf(stmt);
 
-        if  (stmt instanceof ReturnStmt || stmt instanceof ReturnVoidStmt
-                || stmt instanceof ThrowStmt)
-        {
-            assert succs.size() == 0 : "more than one succ for return";
-            handleTerminal();
+        if (isReturnOrThrow(stmt)) {
+            assert succs.size() == 0 : "more than one succ for return or throw";
+            handleTerminal(his, p);
             return;
         }
 
-        assert succs.size() > 0 : "empty succs list for " + stmt + " when stmt is not a return";
-
-        if (succs.size() == 1) // no choice point
-        {
-            if (stmt instanceof GotoStmt)
-                handleGoto(stmt, cfg);
-            else
-                extractSequences(succs.get(0), cfg);
-        }
-        else
-        {
-            Unit succ;
-            List<Unit> choices;
-            int idx = getLastChoicePoint(stmt);
-            if (idx != -1) // already made a choice, now make one of the other choices
-                choices = currChoicePoints.get(idx).getOtherChoices();
-            else
-                choices = succs;
-
-            if (choices.size() == 0)
-                return;
-
-            List<Unit> choices_arr = new ArrayList<Unit>(choices);
-            if (search == SearchOrder.RANDOM)
-                Collections.shuffle(choices_arr, rng);
-
-            while (choices_arr.size() > 0)
-            {
-                succ = choices_arr.remove(0); // mutates the list
-
-                assert succ != null : "succ is null";
-
-                currChoicePoints.push(new ChoicePoint(stmt, succ, new ArrayList<Unit>(choices_arr)));
-                extractSequences(succ, cfg);
-                currChoicePoints.pop();
-            }
-        }
+        assert succs.size() > 0 : "empty succs list when stmt is not a return or throw";
+        Unit succ = succs.get(rng.nextInt(succs.size())); /* pick a random successor */
+        assert succ != null : "succ is null";
+        if (succs.size() > 1) /* record choice point along path */
+            p.addChoicePoint(succ);
+        extractSequence(succ, cfg, his, p);
     }
 
-    // treating goto statements exactly like a choice point (but one that makes
-    // no choice), in order to detect while(true) loops
-    private void handleGoto(Stmt stmt, UnitGraph cfg)
-        throws SequenceExtractorException
-    {
-        int idx = getLastChoicePoint(stmt);
-        if (idx != -1) // already encountered this goto, don't expand it again
-            return;
-
-        Unit succ = cfg.getSuccsOf(stmt).get(0);
-        currChoicePoints.push(new ChoicePoint(stmt, succ, null));
-        extractSequences(succ, cfg);
-        currChoicePoints.pop();
-    }
-
-    private void handleInvoke(Stmt stmt, UnitGraph cfg) 
-        throws SequenceExtractorException
-    {
+    private void handleInvoke(Stmt stmt, UnitGraph cfg, History his, Path p) throws SequenceExtractorException {
         SootMethod callee = stmt.getInvokeExpr().getMethod();
 
-        if (isAndroidMethod(callee)) { // not an application method
-            if (currSequence.size() == MAX_LEN) {
+        if (Util.isAndroidMethod(callee)) { /* add an event to history */
+            if (his.size() >= Options.MAX_LEN) {
                 throw new SequenceLengthException();
             }
 
-            currSequence.push(callee);
+            Event e = new Event(callee, null);
+            his.addEvent(e);
 
-            try {
-                // recurse so that we can pop from the sequence during...
-                extractSequences(stmt, cfg, false);
-            } finally {
-                // ...backtracking
-                currSequence.pop();
-            }
+            extractSequence(stmt, cfg, his, p, false);
         }
-        else // otherwise step over the statement
-        {
-            extractSequences(stmt, cfg, false);
+        else if (appMethods.contains(callee)) { /* FIXME: step into the call */
+            extractSequence(stmt, cfg, his, p, false);
         }
+        else /* not an Android method or application method, step over */
+            extractSequence(stmt, cfg, his, p, false);
     }
 
-    private boolean isAndroidMethod(SootMethod m)
-    {
-        SootClass cl = m.getDeclaringClass();
-        return Scene.v().quotedNameOf(cl.getName()).startsWith("android");
-    }
-
-    private int getLastChoicePoint(Stmt stmt)
-    {
-        for (int i = currChoicePoints.size() - 1; i >= 0; i--)
-            if (currChoicePoints.get(i).getChoicePoint() == stmt)
-                return i;
-        return -1;
-    }
-
-    private void handleTerminal() 
-        throws SequenceExtractorException
-    {
-        if (currSequence.size() == 0 || currSequence.size() == 1)
+    private void handleTerminal(History his, Path p) throws SequenceExtractorException {
+        if (his.size() <= 1)
             return;
 
-        for (SootMethod m : currSequence)
-            outfile.print(mySignature(m) + " ");
-        outfile.println();
-        System.out.println("<seq of size " + currSequence.size() + ">");
-        numSequences++;
+        if (paths.contains(p))
+            return;
+        paths.add(p);
 
-        if (numSequences == MAX_SEQS)
-            throw new SequenceLimitException();
+        his.print(outfile);
+        outfile.println();
+        System.out.println("<seq of size " + his.size() + ">");
+        numSequences++;
     }
 
-    private String mySignature(SootMethod m)
-    {
-        SootClass cl = m.getDeclaringClass();
-        String name = m.getName();
-        List params = m.getParameterTypes();
-        Type returnType = m.getReturnType();
-
-        StringBuffer buffer = new StringBuffer();
-        buffer.append("\"" + Scene.v().quotedNameOf(cl.getName()) + ": ");
-        buffer.append(m.getSubSignature(name, params, returnType));
-        buffer.append("\"");
-
-        return buffer.toString().intern();
+    private boolean isReturnOrThrow(Stmt stmt) {
+        return stmt instanceof ReturnStmt || stmt instanceof ReturnVoidStmt|| stmt instanceof ThrowStmt;
     }
 }

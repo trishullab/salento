@@ -1,4 +1,3 @@
-/* Main driver for soot */
 /* Author: Vijay Murali */
 
 package pliny_soot;
@@ -10,23 +9,21 @@ import soot.*;
 import soot.options.Options;
 
 
+/** Main driver for soot */
 public class Driver {
 
     String[] args;
 
-    public Driver(String[] args)
-    {
+    public Driver(String[] args) {
         this.args = args;
     }
 
-    public static void main(String[] args)
-    {
+    public static void main(String[] args) {
         System.out.println("Driver started");
         new Driver(args).runDriver();
     }
 
-    public void runDriver()
-    {
+    public void runDriver() {
         Options.v().set_src_prec(Options.src_prec_apk);
         Options.v().set_output_format(Options.output_format_dex);
 
@@ -41,7 +38,6 @@ public class Driver {
         
         SequenceExtractor seqExt;
 
-        // Java - making you convert an array to a list
         ArrayList<String> argsList = new ArrayList<String>(Arrays.asList(args));
         if (argsList.contains("-pliny-soot-outfile"))
         {
