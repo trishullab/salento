@@ -25,6 +25,9 @@ public class SequenceExtractor extends BodyTransformer
     /** List of paths explored */
     private List<Path> paths;
 
+    /** Call stack */
+    private Stack<CallContext> callStack;
+
     /** All application methods, used to check if we should add an invocation
      * to the sequence (API) or step into it (application) */
     private List<SootMethod> appMethods;
@@ -57,9 +60,9 @@ public class SequenceExtractor extends BodyTransformer
         totalSequences = 0;
         totalLOC = 0;
         paths = new ArrayList<Path>();
+        callStack = new Stack<CallContext>();
         rng = new Random(System.currentTimeMillis());
         outfile = System.out;
-        appMethods = EntryPoints.v().methodsOfApplicationClasses();
     }
 
     public SequenceExtractor(File f) {
@@ -74,24 +77,23 @@ public class SequenceExtractor extends BodyTransformer
     }
 
     protected void internalTransform(Body body, String phaseName, Map options) {
-        SootMethod rootMethod = body.getMethod();
-        String packageName = rootMethod.getDeclaringClass().getPackageName();
-        if (! Util.canExtractSequences(packageName))
+        SootMethod method = body.getMethod();
+        if (! Util.isAndroidEntryPoint(method))
             return;
 
+        appMethods = EntryPoints.v().methodsOfApplicationClasses();
         int LOC = body.getUnits().size();
         totalLOC += LOC;
 
-        System.out.println("Extracting sequences from " + Util.mySignature(rootMethod));
+        System.out.println("Extracting sequences from " + Util.mySignature(method));
         System.out.println("#instructions: " + LOC);
 
         numSequences = 0;
-        outfile.println("# " + Util.mySignature(rootMethod));
+        outfile.println("# " + Util.mySignature(method));
 
         UnitGraph cfg = new BriefUnitGraph(body);
         Unit head = body.getUnits().getFirst();
 
-        int infinite_loop = 0;
         for (int i = 0; i < Options.MAX_SEQS; i++) {
             startTime = System.currentTimeMillis() / 1000L;
             try {
@@ -105,10 +107,8 @@ public class SequenceExtractor extends BodyTransformer
                 System.exit(1);
             } catch (StackOverflowError e) {
                 System.err.println("infinite loop"); /* most likely */
-                if (infinite_loop > 10)
-                    return;
-                infinite_loop++;
-                continue;
+                callStack.clear();
+                break;
             }
         }
 
@@ -119,11 +119,12 @@ public class SequenceExtractor extends BodyTransformer
         System.out.println("Total LOC: " + totalLOC);
     }
 
-    private void extractSequence(Unit stmt, UnitGraph cfg, History his, Path p) throws SequenceExtractorException {
-        extractSequence(stmt, cfg, his, p, true);
+    private void extractSequence(Unit stmt, UnitGraph cfg, History his, Path path)
+            throws SequenceExtractorException {
+        extractSequence(stmt, cfg, his, path, true);
     }
 
-    private void extractSequence(Unit ustmt, UnitGraph cfg, History his, Path p, boolean invokeCheck)
+    private void extractSequence(Unit ustmt, UnitGraph cfg, History his, Path path, boolean invokeCheck)
         throws SequenceExtractorException {
         /* misbehaving cases */
         if (System.currentTimeMillis() / 1000L - startTime > 5)
@@ -139,7 +140,7 @@ public class SequenceExtractor extends BodyTransformer
         }
 
         if (invokeCheck && stmt.containsInvokeExpr()) {
-            handleInvoke(stmt, cfg, his, p); /* mutually recursive */
+            handleInvoke(stmt, cfg, his, path); /* mutually recursive */
             return;
         }
 
@@ -147,7 +148,13 @@ public class SequenceExtractor extends BodyTransformer
 
         if (isReturnOrThrow(stmt)) {
             assert succs.size() == 0 : "more than one succ for return or throw";
-            handleTerminal(his, p);
+            if (callStack.empty())
+                handleTerminal(his, path);
+            else {
+                CallContext context = callStack.pop();
+                extractSequence(context.getStmt(), context.getCfg(), his, path, false);
+            }
+
             return;
         }
 
@@ -155,11 +162,12 @@ public class SequenceExtractor extends BodyTransformer
         Unit succ = succs.get(rng.nextInt(succs.size())); /* pick a random successor */
         assert succ != null : "succ is null";
         if (succs.size() > 1) /* record choice point along path */
-            p.addChoicePoint(succ);
-        extractSequence(succ, cfg, his, p);
+            path.addChoicePoint(succ);
+        extractSequence(succ, cfg, his, path);
     }
 
-    private void handleInvoke(Stmt stmt, UnitGraph cfg, History his, Path p) throws SequenceExtractorException {
+    private void handleInvoke(Stmt stmt, UnitGraph cfg, History his, Path path)
+            throws SequenceExtractorException {
         SootMethod callee = stmt.getInvokeExpr().getMethod();
 
         if (Util.isAndroidMethod(callee)) { /* add an event to history */
@@ -170,22 +178,27 @@ public class SequenceExtractor extends BodyTransformer
             Event e = new Event(callee, null);
             his.addEvent(e);
 
-            extractSequence(stmt, cfg, his, p, false);
+            extractSequence(stmt, cfg, his, path, false);
         }
-        else if (appMethods.contains(callee)) { /* FIXME: step into the call */
-            extractSequence(stmt, cfg, his, p, false);
+        else if (appMethods.contains(callee)) { /* step into callee */
+            Body body = callee.retrieveActiveBody();
+            UnitGraph calleeCfg = new BriefUnitGraph(body);
+            Unit head = body.getUnits().getFirst();
+
+            callStack.push(new CallContext(stmt, cfg));
+            extractSequence(head, calleeCfg, his, path);
         }
         else /* not an Android method or application method, step over */
-            extractSequence(stmt, cfg, his, p, false);
+            extractSequence(stmt, cfg, his, path, false);
     }
 
-    private void handleTerminal(History his, Path p) throws SequenceExtractorException {
+    private void handleTerminal(History his, Path path) throws SequenceExtractorException {
         if (his.size() <= 1)
             return;
 
-        if (paths.contains(p))
+        if (paths.contains(path))
             return;
-        paths.add(p);
+        paths.add(path);
 
         his.print(outfile);
         outfile.println();

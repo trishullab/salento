@@ -12,15 +12,32 @@ public final class Util {
 
     private Util() {}
 
-    /** Check if a given package should be avoided */
-    public static boolean canExtractSequences(String pack) {
-        for (int i = 0; i < Options.avoidPackages.length; i++)
-            if (pack.startsWith(Options.avoidPackages[i]))
-                return false;
-        return true;
+    /** Check if m is (overriding) an Android entry point */
+    public static boolean isAndroidEntryPoint(SootMethod m) {
+        for (int i = 0; i < Options.androidEntryPoints.length; i++) {
+            String entryPoint = Options.androidEntryPoints[i];
+            String cls = entryPoint.substring(0, entryPoint.lastIndexOf('.'));
+            String mth = entryPoint.substring(entryPoint.lastIndexOf('.')+1);
+
+            SootClass c = m.getDeclaringClass();
+
+            if (isSubclass(c, cls) && m.getName().equals(mth))
+                return true;
+        }
+        return false;
     }
 
-    /** Return true (false) if (not) Android method */
+    /** Check if c is a descendant of cls */
+    public static boolean isSubclass(SootClass c, String cls) {
+        while (c.hasSuperclass()) {
+            c = c.getSuperclass();
+            if (c.getName().equals(cls))
+                return true;
+        }
+        return false;
+    }
+
+    /** Check if m is an Android package method */
     public static boolean isAndroidMethod(SootMethod m) {
         String pack = m.getDeclaringClass().getPackageName();
         return pack.startsWith("android.");
