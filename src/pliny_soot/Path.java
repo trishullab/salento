@@ -33,6 +33,11 @@ public class Path
     }
 
     @Override
+    public String toString() {
+        return choicePoints.toString();
+    }
+
+    @Override
     public boolean equals(Object o) {
         if (o == null || ! (o instanceof Path)) return false;
         if (o == this) return true;

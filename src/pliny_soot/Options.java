@@ -13,6 +13,13 @@ public final class Options
     /** maximum length of sequence */
     public static final int MAX_LEN = 1000;
 
+    /** Type states that we're interested in getting sequences on */
+    public static String[] myTypeStates =
+        {
+            "android.app.Activity",
+            "android.widget.Button",
+        };
+
     /** Android entry points */
     public static String[] androidEntryPoints =
         {

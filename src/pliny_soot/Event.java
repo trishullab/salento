@@ -26,7 +26,7 @@ public class Event
 
     @Override
     public String toString() {
-        String s = Util.mySignature(sigma) + "[";
-        return s + "]";
+        String s = Util.mySignature(sigma);
+        return s;
     }
 }

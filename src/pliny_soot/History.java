@@ -8,7 +8,7 @@ import java.io.PrintStream;
 
 /** History of events */
 public class History {
-    List<Event> events;
+    private List<Event> events;
 
     public History() {
         events = new ArrayList<Event>();
@@ -33,5 +33,13 @@ public class History {
     public void print(PrintStream out) {
         for (Event e : events)
             out.print(e + " ");
+    }
+
+    @Override
+    public String toString() {
+        String s = "";
+        for (Event e : events)
+            s += e + " ";
+        return s;
     }
 }

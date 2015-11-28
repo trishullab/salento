@@ -15,6 +15,8 @@ import soot.jimple.InvokeStmt;
 import soot.jimple.ReturnStmt;
 import soot.jimple.ReturnVoidStmt;
 import soot.jimple.ThrowStmt;
+import soot.jimple.InvokeExpr;
+import soot.jimple.InstanceInvokeExpr;
 
 import soot.jimple.toolkits.callgraph.CallGraph;
 import soot.jimple.toolkits.callgraph.Edge;
@@ -32,7 +34,7 @@ public class SequenceExtractor extends BodyTransformer
      * to the sequence (API) or step into it (application) */
     private List<SootMethod> appMethods;
 
-    /** Number of sequences from each component */
+    /** Number of sequences from each typestate object */
     private int numSequences;
 
     /** Total number of sequences */
@@ -42,17 +44,18 @@ public class SequenceExtractor extends BodyTransformer
     private int totalLOC;
 
     /** The output file */
-    PrintStream outfile;
+    private PrintStream outfile;
 
     /** Start time for this method */
     private long startTime;
 
+    /** Methods encountered (for LOC count) */
+    private List<SootMethod> methodsAnalyzed;
+
     private Random rng;
 
     class SequenceExtractorException extends Exception {}
-
     class SequenceLengthException extends SequenceExtractorException {}
-
     class TimeoutException extends SequenceExtractorException {}
 
 
@@ -61,6 +64,7 @@ public class SequenceExtractor extends BodyTransformer
         totalLOC = 0;
         paths = new ArrayList<Path>();
         callStack = new Stack<CallContext>();
+        methodsAnalyzed = new ArrayList<SootMethod>();
         rng = new Random(System.currentTimeMillis());
         outfile = System.out;
     }
@@ -76,17 +80,16 @@ public class SequenceExtractor extends BodyTransformer
         }
     }
 
+    @Override
     protected void internalTransform(Body body, String phaseName, Map options) {
         SootMethod method = body.getMethod();
+
         if (! Util.isAndroidEntryPoint(method))
             return;
 
+        totalLOC += body.getUnits().size();
         appMethods = EntryPoints.v().methodsOfApplicationClasses();
-        int LOC = body.getUnits().size();
-        totalLOC += LOC;
-
         System.out.println("Extracting sequences from " + Util.mySignature(method));
-        System.out.println("#instructions: " + LOC);
 
         numSequences = 0;
         outfile.println("# " + Util.mySignature(method));
@@ -96,8 +99,10 @@ public class SequenceExtractor extends BodyTransformer
 
         for (int i = 0; i < Options.MAX_SEQS; i++) {
             startTime = System.currentTimeMillis() / 1000L;
+            Sequence seq = new Sequence();
+            Path path = new Path();
             try {
-                extractSequence(head, cfg, new History(), new Path());
+                extractSequence(head, cfg, seq, path);
             } catch (SequenceLengthException e) {
                 System.err.println("too big sequence");
             } catch (TimeoutException e) {
@@ -112,19 +117,21 @@ public class SequenceExtractor extends BodyTransformer
             }
         }
 
-        totalSequences += numSequences;
-        System.out.println("Sub total sequences: " + numSequences);
+        if (numSequences > 0) {
+            totalSequences += numSequences;
+            System.out.println("Sub total sequences: " + numSequences);
 
-        System.out.println("Total sequences: " + totalSequences);
-        System.out.println("Total LOC: " + totalLOC);
+            System.out.println("Total sequences: " + totalSequences);
+            System.out.println("Total LOC: " + totalLOC);
+        }
     }
 
-    private void extractSequence(Unit stmt, UnitGraph cfg, History his, Path path)
+    private void extractSequence(Unit stmt, UnitGraph cfg, Sequence seq, Path path)
             throws SequenceExtractorException {
-        extractSequence(stmt, cfg, his, path, true);
+        extractSequence(stmt, cfg, seq, path, true);
     }
 
-    private void extractSequence(Unit ustmt, UnitGraph cfg, History his, Path path, boolean invokeCheck)
+    private void extractSequence(Unit ustmt, UnitGraph cfg, Sequence seq, Path path, boolean invokeCheck)
         throws SequenceExtractorException {
         /* misbehaving cases */
         if (System.currentTimeMillis() / 1000L - startTime > 5)
@@ -140,7 +147,7 @@ public class SequenceExtractor extends BodyTransformer
         }
 
         if (invokeCheck && stmt.containsInvokeExpr()) {
-            handleInvoke(stmt, cfg, his, path); /* mutually recursive */
+            handleInvoke(stmt, cfg, seq, path); /* mutually recursive */
             return;
         }
 
@@ -149,10 +156,10 @@ public class SequenceExtractor extends BodyTransformer
         if (isReturnOrThrow(stmt)) {
             assert succs.size() == 0 : "more than one succ for return or throw";
             if (callStack.empty())
-                handleTerminal(his, path);
+                handleTerminal(seq, path);
             else {
                 CallContext context = callStack.pop();
-                extractSequence(context.getStmt(), context.getCfg(), his, path, false);
+                extractSequence(context.getStmt(), context.getCfg(), seq, path, false);
             }
 
             return;
@@ -163,22 +170,17 @@ public class SequenceExtractor extends BodyTransformer
         assert succ != null : "succ is null";
         if (succs.size() > 1) /* record choice point along path */
             path.addChoicePoint(succ);
-        extractSequence(succ, cfg, his, path);
+        extractSequence(succ, cfg, seq, path);
     }
 
-    private void handleInvoke(Stmt stmt, UnitGraph cfg, History his, Path path)
+    private void handleInvoke(Stmt stmt, UnitGraph cfg, Sequence seq, Path path)
             throws SequenceExtractorException {
-        SootMethod callee = stmt.getInvokeExpr().getMethod();
+        InvokeExpr invokeExpr = stmt.getInvokeExpr();
+        SootMethod callee = invokeExpr.getMethod();
 
-        if (Util.isAndroidMethod(callee)) { /* add an event to history */
-            if (his.size() >= Options.MAX_LEN) {
-                throw new SequenceLengthException();
-            }
-
-            Event e = new Event(callee, null);
-            his.addEvent(e);
-
-            extractSequence(stmt, cfg, his, path, false);
+        if (Util.isAndroidMethod(callee)) {
+            handleInvokeAndroid(invokeExpr, seq);
+            extractSequence(stmt, cfg, seq, path, false);
         }
         else if (appMethods.contains(callee)) { /* step into callee */
             Body body = callee.retrieveActiveBody();
@@ -186,24 +188,42 @@ public class SequenceExtractor extends BodyTransformer
             Unit head = body.getUnits().getFirst();
 
             callStack.push(new CallContext(stmt, cfg));
-            extractSequence(head, calleeCfg, his, path);
+            if (! methodsAnalyzed.contains(callee)) {
+                methodsAnalyzed.add(callee);
+                totalLOC += body.getUnits().size();
+            }
+            extractSequence(head, calleeCfg, seq, path);
         }
-        else /* not an Android method or application method, step over */
-            extractSequence(stmt, cfg, his, path, false);
+        else /* step over */
+            extractSequence(stmt, cfg, seq, path, false);
     }
 
-    private void handleTerminal(History his, Path path) throws SequenceExtractorException {
-        if (his.size() <= 1)
+    private void handleTerminal(Sequence seq, Path path) throws SequenceExtractorException {
+        if (seq.countNonTrivialSeqs() == 0)
             return;
-
         if (paths.contains(path))
             return;
         paths.add(path);
 
-        his.print(outfile);
-        outfile.println();
-        System.out.println("<seq of size " + his.size() + ">");
-        numSequences++;
+        numSequences += seq.count();
+        seq.print(outfile);
+    }
+
+    private void handleInvokeAndroid(InvokeExpr invokeExpr, Sequence seq) {
+        if (! (invokeExpr instanceof InstanceInvokeExpr)) /* don't include static methods */
+            return;
+
+        InstanceInvokeExpr inst = (InstanceInvokeExpr) invokeExpr;
+        TypeStateObject t = new TypeStateObject(inst.getBase());
+        Event e = new Event(invokeExpr.getMethod(), null);
+
+        if (seq.containsTypeStateObject(t))
+            seq.addEvent(t, e);
+
+        else if (t.isMyTypeState()) {
+            seq.addTypeStateObject(t);
+            seq.addEvent(t, e);
+        }
     }
 
     private boolean isReturnOrThrow(Stmt stmt) {

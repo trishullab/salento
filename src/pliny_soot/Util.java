@@ -14,27 +14,31 @@ public final class Util {
 
     /** Check if m is (overriding) an Android entry point */
     public static boolean isAndroidEntryPoint(SootMethod m) {
-        for (int i = 0; i < Options.androidEntryPoints.length; i++) {
-            String entryPoint = Options.androidEntryPoints[i];
+        for (String entryPoint : Arrays.asList(Options.androidEntryPoints)) {
             String cls = entryPoint.substring(0, entryPoint.lastIndexOf('.'));
             String mth = entryPoint.substring(entryPoint.lastIndexOf('.')+1);
 
             SootClass c = m.getDeclaringClass();
 
-            if (isSubclass(c, cls) && m.getName().equals(mth))
+            if (isDescendant(c, cls) && m.getName().equals(mth))
                 return true;
         }
         return false;
     }
 
     /** Check if c is a descendant of cls */
-    public static boolean isSubclass(SootClass c, String cls) {
+    public static boolean isDescendant(SootClass c, String cls) {
         while (c.hasSuperclass()) {
             c = c.getSuperclass();
             if (c.getName().equals(cls))
                 return true;
         }
         return false;
+    }
+
+    /** Check if a class c is Android */
+    public static boolean isAndroidClass(SootClass c) {
+        return c.getPackageName().startsWith("android.");
     }
 
     /** Check if m is an Android package method */
