@@ -2,6 +2,8 @@
 package pliny_soot;
 
 /** State of a particular property automaton */
-public abstract class PropertyState
-{
+public interface PropertyState {
+    /** String representation of this state */
+    @Override
+    public String toString();
 }

@@ -57,7 +57,7 @@ public final class Util {
 
         StringBuffer buffer = new StringBuffer();
         buffer.append("\"" + Scene.v().quotedNameOf(cl.getName()) + ": ");
-        buffer.append(m.getSubSignature(name, params, returnType));
+        buffer.append(SootMethod.getSubSignature(name, params, returnType));
         buffer.append("\"");
 
         return buffer.toString().intern();

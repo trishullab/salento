@@ -26,7 +26,10 @@ public class Event
 
     @Override
     public String toString() {
-        String s = Util.mySignature(sigma);
+        String s = Util.mySignature(sigma) + "[";
+        for (PropertyState ps : propertyStates)
+            s += ps.toString();
+        s += "]";
         return s;
     }
 }

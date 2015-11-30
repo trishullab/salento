@@ -9,6 +9,7 @@ import soot.Type;
 import soot.RefType;
 import soot.Value;
 
+/** A thin wrapper for a soot Value with additional operations */
 public class TypeStateObject {
 
     private Value object;

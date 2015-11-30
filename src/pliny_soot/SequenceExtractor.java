@@ -27,6 +27,9 @@ public class SequenceExtractor extends BodyTransformer
     /** List of paths explored */
     private List<Path> paths;
 
+    /** List of property automata */
+    private List<PropertyAutomaton> properties;
+
     /** Call stack */
     private Stack<CallContext> callStack;
 
@@ -65,17 +68,28 @@ public class SequenceExtractor extends BodyTransformer
         paths = new ArrayList<Path>();
         callStack = new Stack<CallContext>();
         methodsAnalyzed = new ArrayList<SootMethod>();
+        properties = new ArrayList<PropertyAutomaton>();
         rng = new Random(System.currentTimeMillis());
         outfile = System.out;
     }
 
-    public SequenceExtractor(File f) {
-        this();
-
+    public void setupOutput(File f) {
         try {
             this.outfile = new PrintStream(f);
         } catch (FileNotFoundException e) {
             System.err.println("Cannot create writable file " + f + ":" + e.getMessage());
+            System.exit(1);
+        }
+    }
+
+    public void setupProperties(File f) {
+        try {
+            this.properties = PropertyAutomaton.readProperties(f);
+        } catch (FileNotFoundException e) {
+            System.err.println("Cannot read properties file " + f + ":" + e.getMessage());
+            System.exit(1);
+        } catch (IOException e) {
+            System.err.println("IO Error occurred:" + e.getMessage());
             System.exit(1);
         }
     }
@@ -146,6 +160,10 @@ public class SequenceExtractor extends BodyTransformer
             throw e;
         }
 
+        /* Update all property automata for this stmt */
+        for (PropertyAutomaton p : properties)
+            p.apply(stmt);
+
         if (invokeCheck && stmt.containsInvokeExpr()) {
             handleInvoke(stmt, cfg, seq, path); /* mutually recursive */
             return;
@@ -199,7 +217,7 @@ public class SequenceExtractor extends BodyTransformer
     }
 
     private void handleTerminal(Sequence seq, Path path) throws SequenceExtractorException {
-        if (seq.countNonTrivialSeqs() == 0)
+        if (seq.count() == 0)
             return;
         if (paths.contains(path))
             return;
@@ -215,7 +233,12 @@ public class SequenceExtractor extends BodyTransformer
 
         InstanceInvokeExpr inst = (InstanceInvokeExpr) invokeExpr;
         TypeStateObject t = new TypeStateObject(inst.getBase());
-        Event e = new Event(invokeExpr.getMethod(), null);
+
+        List<PropertyState> ps = new ArrayList<PropertyState>();
+        for (PropertyAutomaton p : properties)
+            ps.add(p.getState());
+
+        Event e = new Event(invokeExpr.getMethod(), ps);
 
         if (seq.containsTypeStateObject(t))
             seq.addEvent(t, e);
@@ -228,5 +251,9 @@ public class SequenceExtractor extends BodyTransformer
 
     private boolean isReturnOrThrow(Stmt stmt) {
         return stmt instanceof ReturnStmt || stmt instanceof ReturnVoidStmt|| stmt instanceof ThrowStmt;
+    }
+
+    public void addPropertyAutomaton(PropertyAutomaton p) {
+        properties.add(p);
     }
 }
