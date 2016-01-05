@@ -2,15 +2,17 @@
 
 package pliny_soot;
 
-import pliny_soot.properties.*;
+import pliny_soot.predicates.*;
 
 import java.util.*;
+import java.util.regex.Pattern;
+import java.util.regex.Matcher;
 import java.io.*;
 
 import soot.Unit;
 
 /** A property automaton */
-public abstract class PropertyAutomaton {
+public class PropertyAutomaton {
     
     /** Read properties from a file and create the automata */
     public static List<PropertyAutomaton> readProperties(File f) throws FileNotFoundException, IOException {
@@ -20,30 +22,87 @@ public abstract class PropertyAutomaton {
         String line;
         List<PropertyAutomaton> properties = new ArrayList<PropertyAutomaton>();
 
+        PropertyAutomaton p = null;
         while ((line = br.readLine()) != null) {
-            String type = line.substring(0, line.indexOf(':'));
-            String s = line.substring(line.indexOf(':') +1);
+            if (line.startsWith("#")) /* comment */
+                continue;
 
-            /* Add new property types here*/
-            PropertyAutomaton p = null;
-            if (type.equals("Equality"))
-                p = new EqualityPropertyAutomaton();
-            else
-                assert false : "invalid property type " + type;
+            if (line.startsWith("p#")) { /* new automaton */
+                if (p != null)
+                    properties.add(p);
+                p = new PropertyAutomaton();
+                continue;
+            }
 
-            p.parse(s);
-            properties.add(p);
+            Pattern regex = Pattern.compile("(\\d+)->(\\d+) (\\w+) (.*)");
+            Matcher m = regex.matcher(line.trim());
+
+            assert m.matches() : "malformed property transition: " + line;
+
+            try {
+                PropertyState from = new PropertyState(Integer.parseInt(m.group(1)));
+                PropertyState to = new PropertyState(Integer.parseInt(m.group(2)));
+                String type = m.group(3);
+                String rest = m.group(4);
+
+                /* Add new predicate types here*/
+                Transition t = new Transition(from, to,
+                        type.equals("equality")  ? new EqualityPredicate(rest) :
+                        type.equals("call")      ? new CallPredicate(rest) :
+                        type.equals("arity")     ? new ArityPredicate(rest) :
+                        null);
+                p.addTransition(t);
+            } catch (NumberFormatException e) {
+                assert false : "invalid state: " + line;
+            }
         }
+
+        if (p != null)
+            properties.add(p);
 
         return properties;
     }
 
-    /** Parse a line from the properties file */
-    public abstract void parse(String s);
+    /** The internal automaton state */
+    private PropertyState state;
 
-    /** Update automaton state given a statement */
-    public abstract void apply(Unit stmt);
-    
-    /** Return the current automaton state */
-    public abstract PropertyState getState();
+    /** List of transitions between states */
+    List<Transition> transitions;
+
+    public PropertyAutomaton() {
+        state = new PropertyState(0);
+        transitions = new ArrayList<Transition>();
+    }
+
+    public PropertyAutomaton(List<Transition> transitions) {
+        state = new PropertyState(0);
+        this.transitions = transitions;
+    }
+
+    public PropertyState getState() {
+        return state;
+    }
+
+    public void addTransition(Transition t) {
+        transitions.add(t);
+    }
+
+    /** Update internal states of each automaton if a transition is enabled */
+    public void post(Unit stmt) {
+        int enabled = 0;
+        for (Transition t : transitions)
+            if (state.equals(t.from()) && t.enabled(stmt)) {
+                state = t.to();
+                enabled++;
+            }
+
+        assert enabled <= 1 : "more than one enabled trans from " + state;
+    }
+
+    /** Update internal information regarding predicates according to this statement */
+    public static void apply(Unit stmt) {
+        EqualityPredicate.apply(stmt);
+        CallPredicate.apply(stmt);
+        ArityPredicate.apply(stmt);
+    }
 }

@@ -28,7 +28,9 @@ public class Event
     public String toString() {
         String s = Util.mySignature(sigma) + "[";
         for (PropertyState ps : propertyStates)
-            s += ps.toString();
+            s += ps.toString() + ",";
+        if (s.charAt(s.length() - 1) == ',')
+            s = s.substring(0, s.length() - 1);
         s += "]";
         return s;
     }

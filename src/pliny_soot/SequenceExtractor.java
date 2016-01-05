@@ -161,8 +161,9 @@ public class SequenceExtractor extends BodyTransformer
         }
 
         /* Update all property automata for this stmt */
+        PropertyAutomaton.apply(stmt);
         for (PropertyAutomaton p : properties)
-            p.apply(stmt);
+            p.post(stmt);
 
         if (invokeCheck && stmt.containsInvokeExpr()) {
             handleInvoke(stmt, cfg, seq, path); /* mutually recursive */
