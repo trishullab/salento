@@ -14,6 +14,51 @@ import soot.Unit;
 /** A property automaton */
 public class PropertyAutomaton {
     
+    /** The internal automaton state */
+    private PropertyState state;
+
+    /** List of transitions between states */
+    List<Transition> transitions;
+
+    public PropertyAutomaton() {
+        state = new PropertyState(0);
+        transitions = new ArrayList<Transition>();
+    }
+
+    public PropertyAutomaton(List<Transition> transitions) {
+        state = new PropertyState(0);
+        this.transitions = transitions;
+    }
+
+    public PropertyState getState() {
+        return state;
+    }
+
+    public void resetState() {
+        state = new PropertyState(0);
+    }
+
+    public void addTransition(Transition t) {
+        transitions.add(t);
+    }
+
+    /** Update internal state of this automaton if a transition is enabled */
+    public void post(Unit stmt) {
+        int enabled = 0;
+        for (Transition t : transitions)
+            if (state.equals(t.from()) && t.enabled(stmt)) {
+                state = t.to();
+                enabled++;
+            }
+
+        assert enabled <= 1 : "more than one enabled trans from " + state;
+    }
+
+
+
+    /* Static methods */
+
+
     /** Read properties from a file and create the automata */
     public static List<PropertyAutomaton> readProperties(File f) throws FileNotFoundException, IOException {
         assert f.exists() : "cannot find properties file " + f;
@@ -61,42 +106,6 @@ public class PropertyAutomaton {
             properties.add(p);
 
         return properties;
-    }
-
-    /** The internal automaton state */
-    private PropertyState state;
-
-    /** List of transitions between states */
-    List<Transition> transitions;
-
-    public PropertyAutomaton() {
-        state = new PropertyState(0);
-        transitions = new ArrayList<Transition>();
-    }
-
-    public PropertyAutomaton(List<Transition> transitions) {
-        state = new PropertyState(0);
-        this.transitions = transitions;
-    }
-
-    public PropertyState getState() {
-        return state;
-    }
-
-    public void addTransition(Transition t) {
-        transitions.add(t);
-    }
-
-    /** Update internal states of each automaton if a transition is enabled */
-    public void post(Unit stmt) {
-        int enabled = 0;
-        for (Transition t : transitions)
-            if (state.equals(t.from()) && t.enabled(stmt)) {
-                state = t.to();
-                enabled++;
-            }
-
-        assert enabled <= 1 : "more than one enabled trans from " + state;
     }
 
     /** Update internal information regarding predicates according to this statement */

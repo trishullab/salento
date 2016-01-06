@@ -115,6 +115,8 @@ public class SequenceExtractor extends BodyTransformer
             startTime = System.currentTimeMillis() / 1000L;
             Sequence seq = new Sequence();
             Path path = new Path();
+            for (PropertyAutomaton p : properties)
+                p.resetState();
             try {
                 extractSequence(head, cfg, seq, path);
             } catch (SequenceLengthException e) {
