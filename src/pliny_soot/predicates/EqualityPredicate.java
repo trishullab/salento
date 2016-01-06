@@ -10,7 +10,7 @@ import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 
 /** An equality (or disequality) predicate */
-public class EqualityPredicate extends Predicate {
+public class EqualityPredicate implements Predicate {
 
     private int lArg;
     private int rArg;
@@ -35,7 +35,6 @@ public class EqualityPredicate extends Predicate {
     public static void apply(Unit stmt) {
     }
 
-    @Override
     public boolean enabled(Unit stmt) {
         return false;
     }

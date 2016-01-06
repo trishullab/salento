@@ -27,7 +27,10 @@ public class SequenceExtractor extends BodyTransformer
     /** List of paths explored */
     private List<Path> paths;
 
-    /** List of property automata */
+    /** List of property automata.
+     *  Properties are actually associated only with typestate.
+     *  This variable exists just to avoid reading the properties file
+     *  each time a typestate is encountered */
     private List<PropertyAutomaton> properties;
 
     /** Call stack */
@@ -113,12 +116,10 @@ public class SequenceExtractor extends BodyTransformer
 
         for (int i = 0; i < Options.MAX_SEQS; i++) {
             startTime = System.currentTimeMillis() / 1000L;
-            Sequence seq = new Sequence();
             Path path = new Path();
-            for (PropertyAutomaton p : properties)
-                p.resetState();
+            List<TypeStateObject> tos = new ArrayList<TypeStateObject>();
             try {
-                extractSequence(head, cfg, seq, path);
+                extractSequence(head, cfg, path, tos);
             } catch (SequenceLengthException e) {
                 System.err.println("too big sequence");
             } catch (TimeoutException e) {
@@ -142,12 +143,13 @@ public class SequenceExtractor extends BodyTransformer
         }
     }
 
-    private void extractSequence(Unit stmt, UnitGraph cfg, Sequence seq, Path path)
+    private void extractSequence(Unit stmt, UnitGraph cfg, Path path, List<TypeStateObject> tos)
             throws SequenceExtractorException {
-        extractSequence(stmt, cfg, seq, path, true);
+        extractSequence(stmt, cfg, path, tos, true);
     }
 
-    private void extractSequence(Unit ustmt, UnitGraph cfg, Sequence seq, Path path, boolean invokeCheck)
+    private void extractSequence(Unit ustmt, UnitGraph cfg, Path path, List<TypeStateObject> tos, 
+            boolean invokeCheck)
         throws SequenceExtractorException {
         /* misbehaving cases */
         if (System.currentTimeMillis() / 1000L - startTime > 5)
@@ -162,13 +164,11 @@ public class SequenceExtractor extends BodyTransformer
             throw e;
         }
 
-        /* Update all property automata for this stmt */
+        /* Update global info for properties */
         PropertyAutomaton.apply(stmt);
-        for (PropertyAutomaton p : properties)
-            p.post(stmt);
 
         if (invokeCheck && stmt.containsInvokeExpr()) {
-            handleInvoke(stmt, cfg, seq, path); /* mutually recursive */
+            handleInvoke(stmt, cfg, path, tos); /* mutually recursive */
             return;
         }
 
@@ -177,10 +177,10 @@ public class SequenceExtractor extends BodyTransformer
         if (isReturnOrThrow(stmt)) {
             assert succs.size() == 0 : "more than one succ for return or throw";
             if (callStack.empty())
-                handleTerminal(seq, path);
+                handleTerminal(path, tos);
             else {
                 CallContext context = callStack.pop();
-                extractSequence(context.getStmt(), context.getCfg(), seq, path, false);
+                extractSequence(context.getStmt(), context.getCfg(), path, tos, false);
             }
 
             return;
@@ -191,17 +191,17 @@ public class SequenceExtractor extends BodyTransformer
         assert succ != null : "succ is null";
         if (succs.size() > 1) /* record choice point along path */
             path.addChoicePoint(succ);
-        extractSequence(succ, cfg, seq, path);
+        extractSequence(succ, cfg, path, tos);
     }
 
-    private void handleInvoke(Stmt stmt, UnitGraph cfg, Sequence seq, Path path)
+    private void handleInvoke(Stmt stmt, UnitGraph cfg, Path path, List<TypeStateObject> tos)
             throws SequenceExtractorException {
         InvokeExpr invokeExpr = stmt.getInvokeExpr();
         SootMethod callee = invokeExpr.getMethod();
 
         if (Util.isAndroidMethod(callee)) {
-            handleInvokeAndroid(invokeExpr, seq);
-            extractSequence(stmt, cfg, seq, path, false);
+            handleInvokeAndroid(stmt, tos);
+            extractSequence(stmt, cfg, path, tos, false);
         }
         else if (appMethods.contains(callee)) { /* step into callee */
             Body body = callee.retrieveActiveBody();
@@ -213,50 +213,65 @@ public class SequenceExtractor extends BodyTransformer
                 methodsAnalyzed.add(callee);
                 totalLOC += body.getUnits().size();
             }
-            extractSequence(head, calleeCfg, seq, path);
+            extractSequence(head, calleeCfg, path, tos);
         }
         else /* step over */
-            extractSequence(stmt, cfg, seq, path, false);
+            extractSequence(stmt, cfg, path, tos, false);
     }
 
-    private void handleTerminal(Sequence seq, Path path) throws SequenceExtractorException {
-        if (seq.count() == 0)
-            return;
+    private void handleTerminal(Path path, List<TypeStateObject> tos) throws SequenceExtractorException {
         if (paths.contains(path))
             return;
         paths.add(path);
 
-        numSequences += seq.count();
-        seq.print(outfile);
+        numSequences += tos.size();
+        for (TypeStateObject t : tos)
+            outfile.println(t.getYoungestAndroidParent() + "#" + t.getHistory());
     }
 
-    private void handleInvokeAndroid(InvokeExpr invokeExpr, Sequence seq) {
+    private void handleInvokeAndroid(Stmt stmt, List<TypeStateObject> tos) {
+        InvokeExpr invokeExpr = stmt.getInvokeExpr();
         if (! (invokeExpr instanceof InstanceInvokeExpr)) /* don't include static methods */
             return;
 
         InstanceInvokeExpr inst = (InstanceInvokeExpr) invokeExpr;
-        TypeStateObject t = new TypeStateObject(inst.getBase());
+        Value v = inst.getBase();
+
+        TypeStateObject t = null;
+        for (TypeStateObject t1 : tos)
+            if (t1.getObject().equals(v)) {
+                t = t1;
+                break;
+            }
+
+        if (t == null) { /* first time encountering this typestate */
+            t = new TypeStateObject(inst.getBase(), getPropertiesClone());
+            if (!t.isMyTypeState())
+                return;
+            tos.add(t);
+        }
 
         List<PropertyState> ps = new ArrayList<PropertyState>();
-        for (PropertyAutomaton p : properties)
+        for (PropertyAutomaton p : t.getProperties()) {
+            p.post(stmt);
             ps.add(p.getState());
+        }
 
         Event e = new Event(invokeExpr.getMethod(), ps);
-
-        if (seq.containsTypeStateObject(t))
-            seq.addEvent(t, e);
-
-        else if (t.isMyTypeState()) {
-            seq.addTypeStateObject(t);
-            seq.addEvent(t, e);
-        }
+        t.getHistory().addEvent(e);
     }
 
     private boolean isReturnOrThrow(Stmt stmt) {
         return stmt instanceof ReturnStmt || stmt instanceof ReturnVoidStmt|| stmt instanceof ThrowStmt;
     }
 
-    public void addPropertyAutomaton(PropertyAutomaton p) {
-        properties.add(p);
+    /** Returns a clone of the properties -- does not clone transitions since they are fixed */
+    private List<PropertyAutomaton> getPropertiesClone() {
+        List<PropertyAutomaton> ps = new ArrayList<PropertyAutomaton>();
+        for (PropertyAutomaton p : properties) {
+            PropertyAutomaton pClone = new PropertyAutomaton(p.getTransitions());
+            ps.add(pClone);
+        }
+        return ps;
     }
 }

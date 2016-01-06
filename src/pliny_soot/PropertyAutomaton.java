@@ -34,6 +34,10 @@ public class PropertyAutomaton {
         return state;
     }
 
+    public List<Transition> getTransitions() {
+        return transitions;
+    }
+
     public void resetState() {
         state = new PropertyState(0);
     }
@@ -108,7 +112,7 @@ public class PropertyAutomaton {
         return properties;
     }
 
-    /** Update internal information regarding predicates according to this statement */
+    /** Update global information regarding predicates according to this statement */
     public static void apply(Unit stmt) {
         EqualityPredicate.apply(stmt);
         CallPredicate.apply(stmt);

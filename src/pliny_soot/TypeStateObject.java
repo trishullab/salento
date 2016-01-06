@@ -2,6 +2,7 @@
 
 package pliny_soot;
 
+import java.util.List;
 import java.util.Arrays;
 
 import soot.SootClass;
@@ -9,17 +10,34 @@ import soot.Type;
 import soot.RefType;
 import soot.Value;
 
-/** A thin wrapper for a soot Value with additional operations */
+/** A typestate object on which some API call operation(s) was performed */
 public class TypeStateObject {
 
+    /** The object of this typstate */
     private Value object;
 
-    public TypeStateObject(Value object) {
+    /** List of property automata associated with this typestate */
+    private List<PropertyAutomaton> properties;
+
+    /** History of events associated with this typestate */
+    private History history;
+
+    public TypeStateObject(Value object, List<PropertyAutomaton> properties) {
         this.object = object;
+        this.properties = properties;
+        history = new History();
     }
 
     public Value getObject() {
         return object;
+    }
+
+    public List<PropertyAutomaton> getProperties() {
+        return properties;
+    }
+
+    public History getHistory() {
+        return history;
     }
 
     /** Get the SootClass of this TypeStateObject */

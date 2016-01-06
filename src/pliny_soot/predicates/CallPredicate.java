@@ -11,7 +11,7 @@ import soot.jimple.Stmt;
 import soot.jimple.InvokeExpr;
 
 /** A predicate that enables/disables on a particular API call */
-public class CallPredicate extends Predicate {
+public class CallPredicate implements Predicate {
 
     private String method;
 
@@ -22,7 +22,6 @@ public class CallPredicate extends Predicate {
     public static void apply(Unit ustmt) {
     }
 
-    @Override
     public boolean enabled(Unit ustmt) {
         Stmt stmt = (Stmt) ustmt;
 

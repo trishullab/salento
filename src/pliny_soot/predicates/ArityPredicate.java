@@ -13,7 +13,7 @@ import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 
 /** A predicate on the arity of a particular API call */
-public class ArityPredicate extends Predicate {
+public class ArityPredicate implements Predicate {
 
     private char op;
     private int arity;
@@ -34,7 +34,6 @@ public class ArityPredicate extends Predicate {
     public static void apply(Unit ustmt) {
     }
 
-    @Override
     public boolean enabled(Unit ustmt) {
         Stmt stmt = (Stmt) ustmt;
 
