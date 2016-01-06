@@ -4,7 +4,7 @@ package pliny_soot.predicates;
 
 import pliny_soot.*;
 
-import soot.Unit;
+import soot.jimple.Stmt;
 
 import soot.jimple.Stmt;
 import soot.jimple.InvokeExpr;
@@ -31,12 +31,10 @@ public class ArityPredicate implements Predicate {
         }
     }
 
-    public static void apply(Unit ustmt) {
+    public static void apply(Stmt stmt) {
     }
 
-    public boolean enabled(Unit ustmt) {
-        Stmt stmt = (Stmt) ustmt;
-
+    public boolean enabled(Stmt stmt) {
         if (!stmt.containsInvokeExpr())
             return false;
 

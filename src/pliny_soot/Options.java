@@ -2,6 +2,8 @@
 
 package pliny_soot;
 
+import java.util.List;
+
 /** Configurable options for pliny-soot */
 public final class Options
 {
@@ -14,11 +16,7 @@ public final class Options
     public static final int MAX_LEN = 1000;
 
     /** Type states that we're interested in getting sequences on */
-    public static String[] myTypeStates =
-        {
-            "android.app.Activity",
-            "android.widget.Button",
-        };
+    public static List<String> myTypestates;
 
     /** Android entry points */
     public static String[] androidEntryPoints =

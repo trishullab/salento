@@ -4,7 +4,7 @@ package pliny_soot.predicates;
 
 import pliny_soot.*;
 
-import soot.Unit;
+import soot.jimple.Stmt;
 
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
@@ -32,10 +32,10 @@ public class EqualityPredicate implements Predicate {
         }
     }
 
-    public static void apply(Unit stmt) {
+    public static void apply(Stmt stmt) {
     }
 
-    public boolean enabled(Unit stmt) {
+    public boolean enabled(Stmt stmt) {
         return false;
     }
 }

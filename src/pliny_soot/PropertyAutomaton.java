@@ -9,7 +9,7 @@ import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 import java.io.*;
 
-import soot.Unit;
+import soot.jimple.Stmt;
 
 /** A property automaton */
 public class PropertyAutomaton {
@@ -47,7 +47,7 @@ public class PropertyAutomaton {
     }
 
     /** Update internal state of this automaton if a transition is enabled */
-    public void post(Unit stmt) {
+    public void post(Stmt stmt) {
         int enabled = 0;
         for (Transition t : transitions)
             if (state.equals(t.from()) && t.enabled(stmt)) {
@@ -73,7 +73,7 @@ public class PropertyAutomaton {
 
         PropertyAutomaton p = null;
         while ((line = br.readLine()) != null) {
-            if (line.startsWith("#")) /* comment */
+            if (line.startsWith("#") || line.trim().equals("")) /* comment */
                 continue;
 
             if (line.startsWith("p#")) { /* new automaton */
@@ -113,7 +113,7 @@ public class PropertyAutomaton {
     }
 
     /** Update global information regarding predicates according to this statement */
-    public static void apply(Unit stmt) {
+    public static void apply(Stmt stmt) {
         EqualityPredicate.apply(stmt);
         CallPredicate.apply(stmt);
         ArityPredicate.apply(stmt);

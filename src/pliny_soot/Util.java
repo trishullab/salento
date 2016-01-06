@@ -62,4 +62,17 @@ public final class Util {
 
         return buffer.toString().intern();
     }
+
+    /** Read a file into a list of strings */
+    public static List<String> readFileToList(File f) throws FileNotFoundException, IOException {
+        List<String> lines = new ArrayList<String>();
+        BufferedReader br = new BufferedReader(new FileReader(f));
+        String line;
+        
+        while ((line = br.readLine()) != null)
+            lines.add(line);
+
+        br.close();
+        return lines;
+    }
 }

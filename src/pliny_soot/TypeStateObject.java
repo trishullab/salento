@@ -50,12 +50,14 @@ public class TypeStateObject {
 
     /** Check if this TypeStateObject is of a type we're interested in */
     public boolean isMyTypeState() {
+        if (Options.myTypestates == null)
+            return true;
         Type t = object.getType();
         if (! (t instanceof RefType))
             return false;
         RefType rt = (RefType) t;
         SootClass c = rt.getSootClass();
-        for (String cls : Arrays.asList(Options.myTypeStates))
+        for (String cls : Options.myTypestates)
             if (c.getName().equals(cls) || Util.isDescendant(c, cls))
                 return true;
         return false;

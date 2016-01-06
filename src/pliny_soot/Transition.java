@@ -2,7 +2,7 @@
 
 package pliny_soot;
 
-import soot.Unit;
+import soot.jimple.Stmt;
 
 /** A transition in a property automaton */
 public class Transition {
@@ -27,7 +27,7 @@ public class Transition {
         return to;
     }
 
-    public boolean enabled(Unit stmt) {
+    public boolean enabled(Stmt stmt) {
         return predicate.enabled(stmt);
     }
 }

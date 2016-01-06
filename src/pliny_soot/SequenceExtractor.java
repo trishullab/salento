@@ -97,6 +97,18 @@ public class SequenceExtractor extends BodyTransformer
         }
     }
 
+    public void setupTypestates(File f) {
+        try {
+            Options.myTypestates = Util.readFileToList(f);
+        } catch (FileNotFoundException e) {
+            System.err.println("Cannot read typestates file " + f + ":" + e.getMessage());
+            System.exit(1);
+        } catch (IOException e) {
+            System.err.println("IO Error occurred:" + e.getMessage());
+            System.exit(1);
+        }
+    }
+
     @Override
     protected void internalTransform(Body body, String phaseName, Map options) {
         SootMethod method = body.getMethod();

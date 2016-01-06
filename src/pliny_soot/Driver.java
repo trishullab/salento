@@ -39,16 +39,22 @@ public class Driver {
         SequenceExtractor seqExt = new SequenceExtractor();
 
         ArrayList<String> argsList = new ArrayList<String>(Arrays.asList(args));
-        if (argsList.contains("-pliny-soot-outfile")) {
-            String arg = argsList.remove(argsList.indexOf("-pliny-soot-outfile")+1);
+        if (argsList.contains("-outfile")) {
+            String arg = argsList.remove(argsList.indexOf("-outfile")+1);
             seqExt.setupOutput(new File(arg));
-            argsList.remove("-pliny-soot-outfile");
+            argsList.remove("-outfile");
+        }
+        if (argsList.contains("-typestates-file")) {
+            String arg = argsList.remove(argsList.indexOf("-typestates-file")+1);
+            seqExt.setupTypestates(new File(arg));
+            argsList.remove("-typestates-file");
         }
         if (argsList.contains("-properties-file")) {
             String arg = argsList.remove(argsList.indexOf("-properties-file")+1);
             seqExt.setupProperties(new File(arg));
             argsList.remove("-properties-file");
         }
+
 
         jtp.add(new Transform("jtp.sequence_extractor", seqExt));
         soot.Main.main(argsList.toArray(new String[0]));
