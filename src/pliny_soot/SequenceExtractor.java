@@ -238,7 +238,8 @@ public class SequenceExtractor extends BodyTransformer
 
         numSequences += tos.size();
         for (TypeStateObject t : tos)
-            outfile.println(t.getYoungestAndroidParent() + "#" + t.getHistory());
+            if (t.isValidTypeState())
+                outfile.println(t.getYoungestAndroidParent() + "#" + t.getHistory());
     }
 
     private void handleInvokeAndroid(Stmt stmt, List<TypeStateObject> tos) {

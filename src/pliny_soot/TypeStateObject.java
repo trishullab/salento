@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Arrays;
 
 import soot.SootClass;
+import soot.SootMethod;
 import soot.Type;
 import soot.RefType;
 import soot.Value;
@@ -38,6 +39,21 @@ public class TypeStateObject {
 
     public History getHistory() {
         return history;
+    }
+
+    /** Check if this is a valid typestate.
+     * Include in here any condition that indicates that the sequences
+     * collected on this typestate may be invalid
+     * (example - object was not allocated before it was used). If the
+     * typestate is not valid, the sequences will be discarded.
+     * We're giving the benefit of doubt to the app, assuming that the
+     * imprecision in our static collection of sequences is to blame. */
+    public boolean isValidTypeState() {
+        SootMethod firstCall = history.getEvents().get(0).getSigma();
+        if (!firstCall.isConstructor())
+            return false;
+
+        return true;
     }
 
     /** Get the SootClass of this TypeStateObject */
