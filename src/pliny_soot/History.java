@@ -39,7 +39,7 @@ public class History {
     public String toString() {
         String s = "";
         for (Event e : events)
-            s += e + " ";
+            s += e + ";";
         return s;
     }
 }
