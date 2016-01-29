@@ -10,10 +10,12 @@ public class Event
 {
     private SootMethod sigma;
     private List<PropertyState> propertyStates;
+    private LocationInfo location;
 
-    public Event(SootMethod sigma, List<PropertyState> propertyStates) {
+    public Event(SootMethod sigma, List<PropertyState> propertyStates, LocationInfo location) {
         this.sigma = sigma;
         this.propertyStates = propertyStates;
+        this.location = location;
     }
 
     public SootMethod getSigma() {
@@ -24,6 +26,10 @@ public class Event
         return propertyStates;
     }
 
+    public LocationInfo getLocationInfo() {
+        return location;
+    }
+
     @Override
     public String toString() {
         String s = Util.mySignature(sigma) + "[";
@@ -31,7 +37,7 @@ public class Event
             s += ps.toString() + ",";
         if (s.charAt(s.length() - 1) == ',')
             s = s.substring(0, s.length() - 1);
-        s += "]";
+        s += "][" + location + "]";
         return s;
     }
 }

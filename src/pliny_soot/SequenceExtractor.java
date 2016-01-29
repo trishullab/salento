@@ -33,8 +33,8 @@ public class SequenceExtractor extends BodyTransformer
      *  each time a typestate is encountered */
     private List<PropertyAutomaton> properties;
 
-    /** Call stack */
-    private Stack<CallContext> callStack;
+    /** Return point stack */
+    private Stack<CallContext> returnStack;
 
     /** All application methods, used to check if we should add an invocation
      * to the sequence (API) or step into it (application) */
@@ -69,7 +69,7 @@ public class SequenceExtractor extends BodyTransformer
         totalSequences = 0;
         totalLOC = 0;
         paths = new ArrayList<Path>();
-        callStack = new Stack<CallContext>();
+        returnStack = new Stack<CallContext>();
         methodsAnalyzed = new ArrayList<SootMethod>();
         properties = new ArrayList<PropertyAutomaton>();
         rng = new Random(System.currentTimeMillis());
@@ -141,7 +141,7 @@ public class SequenceExtractor extends BodyTransformer
                 System.exit(1);
             } catch (StackOverflowError e) {
                 System.err.println("infinite loop"); /* most likely */
-                callStack.clear();
+                returnStack.clear();
                 break;
             }
         }
@@ -188,10 +188,10 @@ public class SequenceExtractor extends BodyTransformer
 
         if (isReturnOrThrow(stmt)) {
             assert succs.size() == 0 : "more than one succ for return or throw";
-            if (callStack.empty())
+            if (returnStack.empty())
                 handleTerminal(path, tos);
             else {
-                CallContext context = callStack.pop();
+                CallContext context = returnStack.pop();
                 extractSequence(context.getStmt(), context.getCfg(), path, tos, false);
             }
 
@@ -212,7 +212,7 @@ public class SequenceExtractor extends BodyTransformer
         SootMethod callee = invokeExpr.getMethod();
 
         if (Util.isAndroidMethod(callee)) {
-            handleInvokeAndroid(stmt, tos);
+            handleInvokeAndroid(stmt, tos, cfg.getBody().getMethod());
             extractSequence(stmt, cfg, path, tos, false);
         }
         else if (appMethods.contains(callee)) { /* step into callee */
@@ -220,7 +220,7 @@ public class SequenceExtractor extends BodyTransformer
             UnitGraph calleeCfg = new BriefUnitGraph(body);
             Unit head = body.getUnits().getFirst();
 
-            callStack.push(new CallContext(stmt, cfg));
+            returnStack.push(new CallContext(stmt, cfg));
             if (! methodsAnalyzed.contains(callee)) {
                 methodsAnalyzed.add(callee);
                 totalLOC += body.getUnits().size();
@@ -242,7 +242,7 @@ public class SequenceExtractor extends BodyTransformer
                 outfile.println(t.getYoungestAndroidParent() + "#" + t.getHistory());
     }
 
-    private void handleInvokeAndroid(Stmt stmt, List<TypeStateObject> tos) {
+    private void handleInvokeAndroid(Stmt stmt, List<TypeStateObject> tos, SootMethod currMethod) {
         InvokeExpr invokeExpr = stmt.getInvokeExpr();
         if (! (invokeExpr instanceof InstanceInvokeExpr)) /* don't include static methods */
             return;
@@ -270,7 +270,9 @@ public class SequenceExtractor extends BodyTransformer
             ps.add(p.getState());
         }
 
-        Event e = new Event(invokeExpr.getMethod(), ps);
+        LocationInfo location = new LocationInfo(stmt, currMethod);
+
+        Event e = new Event(invokeExpr.getMethod(), ps, location);
         t.getHistory().addEvent(e);
     }
 
