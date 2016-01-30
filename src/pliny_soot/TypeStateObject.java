@@ -5,6 +5,7 @@ package pliny_soot;
 import java.util.List;
 import java.util.Arrays;
 
+import soot.Scene;
 import soot.SootClass;
 import soot.SootMethod;
 import soot.Type;
@@ -50,7 +51,7 @@ public class TypeStateObject {
      * imprecision in our static collection of sequences is to blame. */
     public boolean isValidTypeState() {
         SootMethod firstCall = history.getEvents().get(0).getSigma();
-        if (!firstCall.isConstructor())
+        if (!firstCall.isConstructor() && !firstCall.isStatic())
             return false;
 
         return true;
@@ -79,10 +80,10 @@ public class TypeStateObject {
         return false;
     }
 
-    /** Return the first Android class that comes up in this object's inheritance hierarchy */
-    public SootClass getYoungestAndroidParent() {
+    /** Return the first non-application class that comes up in this object's inheritance hierarchy */
+    public SootClass getYoungestNonAppParent() {
         SootClass c = getSootClass();
-        while (! Util.isAndroidClass(c))
+        while (Scene.v().getApplicationClasses().contains(c))
             c = c.getSuperclass();
         return c;
     }

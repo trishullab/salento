@@ -10,6 +10,7 @@ import soot.toolkits.graph.UnitGraph;
 import soot.toolkits.graph.BriefUnitGraph;
 
 import soot.jimple.Stmt;
+import soot.jimple.AssignStmt;
 import soot.jimple.GotoStmt;
 import soot.jimple.InvokeStmt;
 import soot.jimple.ReturnStmt;
@@ -17,6 +18,7 @@ import soot.jimple.ReturnVoidStmt;
 import soot.jimple.ThrowStmt;
 import soot.jimple.InvokeExpr;
 import soot.jimple.InstanceInvokeExpr;
+import soot.jimple.StaticInvokeExpr;
 
 import soot.jimple.toolkits.callgraph.CallGraph;
 import soot.jimple.toolkits.callgraph.Edge;
@@ -239,17 +241,21 @@ public class SequenceExtractor extends BodyTransformer
         numSequences += tos.size();
         for (TypeStateObject t : tos)
             if (t.isValidTypeState())
-                outfile.println(t.getYoungestAndroidParent() + "#" + t.getHistory());
+                outfile.println(t.getYoungestNonAppParent() + "#" + t.getHistory());
     }
 
     private void handleInvokeAndroid(Stmt stmt, List<TypeStateObject> tos, SootMethod currMethod) {
         InvokeExpr invokeExpr = stmt.getInvokeExpr();
-        if (! (invokeExpr instanceof InstanceInvokeExpr)) /* don't include static methods */
-            return;
 
-        InstanceInvokeExpr inst = (InstanceInvokeExpr) invokeExpr;
-        Value v = inst.getBase();
-
+        Value v;
+        if (invokeExpr instanceof InstanceInvokeExpr)
+            v = ((InstanceInvokeExpr) invokeExpr).getBase();
+        else if (invokeExpr instanceof StaticInvokeExpr && stmt instanceof AssignStmt
+                    && ((AssignStmt) stmt).getLeftOp().getType() instanceof RefType)
+            v = ((AssignStmt) stmt).getLeftOp();
+        else
+            return; /* don't include static methods that don't return anything stored to an object */
+        
         TypeStateObject t = null;
         for (TypeStateObject t1 : tos)
             if (t1.getObject().equals(v)) {
@@ -258,7 +264,7 @@ public class SequenceExtractor extends BodyTransformer
             }
 
         if (t == null) { /* first time encountering this typestate */
-            t = new TypeStateObject(inst.getBase(), getPropertiesClone());
+            t = new TypeStateObject(v, getPropertiesClone());
             if (!t.isMyTypeState())
                 return;
             tos.add(t);
