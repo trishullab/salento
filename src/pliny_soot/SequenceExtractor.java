@@ -248,17 +248,22 @@ public class SequenceExtractor extends BodyTransformer
         InvokeExpr invokeExpr = stmt.getInvokeExpr();
 
         Value v;
-        if (invokeExpr instanceof InstanceInvokeExpr)
+        if (invokeExpr instanceof InstanceInvokeExpr) {
             v = ((InstanceInvokeExpr) invokeExpr).getBase();
+            if (invokeExpr.getMethod().isConstructor())
+                finalizePreviousHistory(tos, v);
+        }
         else if (invokeExpr instanceof StaticInvokeExpr && stmt instanceof AssignStmt
-                    && ((AssignStmt) stmt).getLeftOp().getType() instanceof RefType)
+                    && ((AssignStmt) stmt).getLeftOp().getType() instanceof RefType) {
             v = ((AssignStmt) stmt).getLeftOp();
+            finalizePreviousHistory(tos, v);
+        }
         else
             return; /* don't include static methods that don't return anything stored to an object */
         
         TypeStateObject t = null;
         for (TypeStateObject t1 : tos)
-            if (t1.getObject().equals(v)) {
+            if (!t1.getHistory().isFinalized() && t1.getObject().equals(v)) {
                 t = t1;
                 break;
             }
@@ -284,6 +289,16 @@ public class SequenceExtractor extends BodyTransformer
 
     private boolean isReturnOrThrow(Stmt stmt) {
         return stmt instanceof ReturnStmt || stmt instanceof ReturnVoidStmt|| stmt instanceof ThrowStmt;
+    }
+
+    /** Find a non-finalized typestate object (default/init: all objects in tos) representing v in tos,
+     * and if any, finalize its history so that no new events can be added to it */
+    private void finalizePreviousHistory(List<TypeStateObject> tos, Value v) {
+        for (TypeStateObject t1 : tos)
+            if (!t1.getHistory().isFinalized() && t1.getObject().equals(v)) {
+                t1.getHistory().finalize();
+                return;
+            }
     }
 
     /** Returns a clone of the properties -- does not clone transitions since they are fixed */
