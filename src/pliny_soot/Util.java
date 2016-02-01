@@ -36,15 +36,15 @@ public final class Util {
         return false;
     }
 
-    /** Check if a class c is Android */
-    public static boolean isAndroidClass(SootClass c) {
-        return c.getPackageName().startsWith("android.");
-    }
-
-    /** Check if m is an Android package method */
-    public static boolean isAndroidMethod(SootMethod m) {
-        String pack = m.getDeclaringClass().getPackageName();
-        return pack.startsWith("android.");
+    /** Check if m is a method we're interested in getting sequences on */
+    public static boolean isRelevantMethod(SootMethod m) {
+        if (Options.myTypestates == null)
+            return true;
+        SootClass c = m.getDeclaringClass();
+        for (String cls : Options.myTypestates)
+            if (c.getName().equals(cls) || Util.isDescendant(c, cls))
+                return true;
+        return false;
     }
 
     /** Special signature for data format */

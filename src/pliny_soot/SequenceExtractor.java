@@ -213,8 +213,8 @@ public class SequenceExtractor extends BodyTransformer
         InvokeExpr invokeExpr = stmt.getInvokeExpr();
         SootMethod callee = invokeExpr.getMethod();
 
-        if (Util.isAndroidMethod(callee)) {
-            handleInvokeAndroid(stmt, tos, cfg.getBody().getMethod());
+        if (Util.isRelevantMethod(callee)) {
+            handleInvokeRelevant(stmt, tos, cfg.getBody().getMethod());
             extractSequence(stmt, cfg, path, tos, false);
         }
         else if (appMethods.contains(callee)) { /* step into callee */
@@ -244,7 +244,7 @@ public class SequenceExtractor extends BodyTransformer
                 outfile.println(t.getYoungestNonAppParent() + "#" + t.getHistory());
     }
 
-    private void handleInvokeAndroid(Stmt stmt, List<TypeStateObject> tos, SootMethod currMethod) {
+    private void handleInvokeRelevant(Stmt stmt, List<TypeStateObject> tos, SootMethod currMethod) {
         InvokeExpr invokeExpr = stmt.getInvokeExpr();
 
         Value v;
@@ -270,8 +270,7 @@ public class SequenceExtractor extends BodyTransformer
 
         if (t == null) { /* first time encountering this typestate */
             t = new TypeStateObject(v, getPropertiesClone());
-            if (!t.isMyTypeState())
-                return;
+            assert t.isMyTypeState() : "something wrong in sequence extraction";
             tos.add(t);
         }
 
