@@ -49,13 +49,15 @@ public class PropertyAutomaton {
     /** Update internal state of this automaton if a transition is enabled */
     public void post(Stmt stmt) {
         int enabled = 0;
+        PropertyState nextState = state;
         for (Transition t : transitions)
             if (state.equals(t.from()) && t.enabled(stmt)) {
-                state = t.to();
+                nextState = t.to();
                 enabled++;
             }
 
-        assert enabled <= 1 : "more than one enabled trans from " + state;
+        assert enabled <= 1 : "more than one enabled trans for " + stmt + " from " + state;
+        state = nextState;
     }
 
 
@@ -99,6 +101,7 @@ public class PropertyAutomaton {
                         type.equals("equality")  ? new EqualityPredicate(rest) :
                         type.equals("call")      ? new CallPredicate(rest) :
                         type.equals("arity")     ? new ArityPredicate(rest) :
+                        type.equals("argvalRE")  ? new ArgValueREPredicate(rest) :
                         null);
                 p.addTransition(t);
             } catch (NumberFormatException e) {
@@ -117,5 +120,6 @@ public class PropertyAutomaton {
         EqualityPredicate.apply(stmt);
         CallPredicate.apply(stmt);
         ArityPredicate.apply(stmt);
+        ArgValueREPredicate.apply(stmt);
     }
 }
