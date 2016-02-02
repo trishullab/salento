@@ -36,17 +36,6 @@ public final class Util {
         return false;
     }
 
-    /** Check if m is a method we're interested in getting sequences on */
-    public static boolean isRelevantMethod(SootMethod m) {
-        if (Options.myTypestates == null)
-            return true;
-        SootClass c = m.getDeclaringClass();
-        for (String cls : Options.myTypestates)
-            if (c.getName().equals(cls) || Util.isDescendant(c, cls))
-                return true;
-        return false;
-    }
-
     /** Special signature for data format */
     public static String mySignature(SootMethod m)
     {

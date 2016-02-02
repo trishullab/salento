@@ -16,7 +16,7 @@ public final class Options
     public static final int MAX_LEN = 1000;
 
     /** Type states that we're interested in getting sequences on */
-    public static List<String> myTypestates;
+    public static List<String> relevantTypestates;
 
     /** Android entry points */
     public static String[] androidEntryPoints =

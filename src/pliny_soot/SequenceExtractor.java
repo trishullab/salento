@@ -101,7 +101,7 @@ public class SequenceExtractor extends BodyTransformer
 
     public void setupTypestates(File f) {
         try {
-            Options.myTypestates = Util.readFileToList(f);
+            Options.relevantTypestates = Util.readFileToList(f);
         } catch (FileNotFoundException e) {
             System.err.println("Cannot read typestates file " + f + ":" + e.getMessage());
             System.exit(1);
@@ -213,8 +213,7 @@ public class SequenceExtractor extends BodyTransformer
         InvokeExpr invokeExpr = stmt.getInvokeExpr();
         SootMethod callee = invokeExpr.getMethod();
 
-        if (Util.isRelevantMethod(callee)) {
-            handleInvokeRelevant(stmt, tos, cfg.getBody().getMethod());
+        if (handleInvokeRelevant(stmt, tos, cfg.getBody().getMethod())) {
             extractSequence(stmt, cfg, path, tos, false);
         }
         else if (appMethods.contains(callee)) { /* step into callee */
@@ -240,15 +239,16 @@ public class SequenceExtractor extends BodyTransformer
 
         numSequences += tos.size();
         for (TypeStateObject t : tos)
-            if (t.isValidTypeState())
-                outfile.println(t.getYoungestNonAppParent() + "#" + t.getHistory());
+            if (t.hasValidHistory())
+                outfile.println(t.getRelevantAncestor() + "#" + t.getHistory());
     }
 
-    private void handleInvokeRelevant(Stmt stmt, List<TypeStateObject> tos, SootMethod currMethod) {
+    private boolean handleInvokeRelevant(Stmt stmt, List<TypeStateObject> tos, SootMethod currMethod) {
         InvokeExpr invokeExpr = stmt.getInvokeExpr();
 
         Value v;
-        if (invokeExpr instanceof InstanceInvokeExpr) {
+        if (invokeExpr instanceof InstanceInvokeExpr
+                && ((InstanceInvokeExpr) invokeExpr).getBase().getType() instanceof RefType) {
             v = ((InstanceInvokeExpr) invokeExpr).getBase();
             if (invokeExpr.getMethod().isConstructor())
                 finalizePreviousHistory(tos, v);
@@ -259,7 +259,7 @@ public class SequenceExtractor extends BodyTransformer
             finalizePreviousHistory(tos, v);
         }
         else
-            return; /* don't include static methods that don't return anything stored to an object */
+            return false; /* don't include static methods that don't return anything stored to an object */
         
         TypeStateObject t = null;
         for (TypeStateObject t1 : tos)
@@ -270,7 +270,8 @@ public class SequenceExtractor extends BodyTransformer
 
         if (t == null) { /* first time encountering this typestate */
             t = new TypeStateObject(v, getPropertiesClone());
-            assert t.isMyTypeState() : "something wrong in sequence extraction";
+            if (! t.isRelevant())
+                return false;
             tos.add(t);
         }
 
@@ -284,6 +285,8 @@ public class SequenceExtractor extends BodyTransformer
 
         Event e = new Event(invokeExpr.getMethod(), ps, location);
         t.getHistory().addEvent(e);
+
+        return true;
     }
 
     private boolean isReturnOrThrow(Stmt stmt) {

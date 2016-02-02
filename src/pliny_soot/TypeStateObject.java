@@ -28,6 +28,7 @@ public class TypeStateObject {
         this.object = object;
         this.properties = properties;
         history = new History();
+        assert object.getType() instanceof RefType : "TypeStateObject created without any reference!";
     }
 
     public Value getObject() {
@@ -49,7 +50,7 @@ public class TypeStateObject {
      * typestate is not valid, the sequences will be discarded.
      * We're giving the benefit of doubt to the app, assuming that the
      * imprecision in our static collection of sequences is to blame. */
-    public boolean isValidTypeState() {
+    public boolean hasValidHistory() {
         SootMethod firstCall = history.getEvents().get(0).getSigma();
         if (!firstCall.isConstructor() && !firstCall.isStatic())
             return false;
@@ -57,34 +58,24 @@ public class TypeStateObject {
         return true;
     }
 
-    /** Get the SootClass of this TypeStateObject */
-    public SootClass getSootClass() {
-        Type t = object.getType();
-        assert t instanceof RefType : t + " is not a reference type";
-        RefType rt = (RefType) t;
-        return rt.getSootClass();
-    }
-
     /** Check if this TypeStateObject is of a type we're interested in */
-    public boolean isMyTypeState() {
-        if (Options.myTypestates == null)
+    public boolean isRelevant() {
+        if (Options.relevantTypestates == null)
             return true;
-        Type t = object.getType();
-        if (! (t instanceof RefType))
-            return false;
-        RefType rt = (RefType) t;
-        SootClass c = rt.getSootClass();
-        for (String cls : Options.myTypestates)
-            if (c.getName().equals(cls) || Util.isDescendant(c, cls))
+        SootClass c = ((RefType) object.getType()).getSootClass();
+        for (String cls : Options.relevantTypestates)
+            if (c.getName().equals(cls))
                 return true;
         return false;
     }
 
-    /** Return the first non-application class that comes up in this object's inheritance hierarchy */
-    public SootClass getYoungestNonAppParent() {
-        SootClass c = getSootClass();
-        while (Scene.v().getApplicationClasses().contains(c))
-            c = c.getSuperclass();
+    /** Return the first relevant class that comes up in this object's inheritance hierarchy */
+    public SootClass getRelevantAncestor() {
+        SootClass c = ((RefType) object.getType()).getSootClass();
+        if (Options.relevantTypestates == null) { /* interested in all typestates? get the first non-app class */
+            while (Scene.v().getApplicationClasses().contains(c))
+                c = c.getSuperclass();
+        }
         return c;
     }
 
