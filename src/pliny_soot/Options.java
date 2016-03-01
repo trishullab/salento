@@ -15,6 +15,9 @@ public final class Options
     /** maximum length of sequence */
     public static final int MAX_LEN = 1000;
 
+    /** print location info with each event? */
+    public static boolean printLocation;
+
     /** Type states that we're interested in getting sequences on */
     public static List<String> relevantTypestates;
 

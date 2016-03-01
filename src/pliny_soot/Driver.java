@@ -54,6 +54,10 @@ public class Driver {
             seqExt.setupProperties(new File(arg));
             argsList.remove("-properties-file");
         }
+        if (argsList.contains("-print-location")) {
+            pliny_soot.Options.printLocation = true;
+            argsList.remove("-print-location");
+        }
 
 
         jtp.add(new Transform("jtp.sequence_extractor", seqExt));

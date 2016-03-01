@@ -29,7 +29,7 @@ public class LocationInfo
 
     @Override
     public String toString() {
-        if (fileTag == null || lnTag == null)
+        if (!Options.printLocation || fileTag == null || lnTag == null)
             return "";
         else
             return getFileName() + "@" + getLineNumber();

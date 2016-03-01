@@ -123,7 +123,7 @@ public class SequenceExtractor extends BodyTransformer
         System.out.println("Extracting sequences from " + Util.mySignature(method));
 
         numSequences = 0;
-        outfile.println("# " + Util.mySignature(method));
+        //outfile.println("# " + Util.mySignature(method));
 
         UnitGraph cfg = new BriefUnitGraph(body);
         Unit head = body.getUnits().getFirst();
@@ -240,7 +240,8 @@ public class SequenceExtractor extends BodyTransformer
         numSequences += tos.size();
         for (TypeStateObject t : tos)
             if (t.hasValidHistory())
-                outfile.println(t.getRelevantAncestor() + "#" + t.getHistory());
+                //outfile.println(t.getRelevantAncestor() + "#" + t.getHistory());
+                outfile.println(t.getHistory());
     }
 
     private boolean handleInvokeRelevant(Stmt stmt, List<TypeStateObject> tos, SootMethod currMethod) {
