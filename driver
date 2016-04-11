@@ -1,0 +1,19 @@
+#!/bin/bash
+
+if [ $# -lt 1 ]; then
+    echo "Usage: $0 <dir>"
+    exit
+fi
+
+export sootcp=$SALENTO_ANDROID_HOME/lib/soot-trunk.jar
+export sootcp=$sootcp:$SALENTO_ANDROID_HOME/lib/jasminclasses-2.5.0.jar
+export sootcp=$sootcp:$SALENTO_ANDROID_HOME/lib/polyglot.jar
+export sootcp=$sootcp:$SALENTO_ANDROID_HOME/lib/java_cup.jar
+export sootcp=$sootcp:$JAVA_HOME/jre/lib/rt.jar
+export sootcp=$sootcp:$JAVA_HOME/jre/lib/jce.jar
+
+export androidcp=$SALENTO_ANDROID_HOME/lib/android.jar
+export androidcp=$androidcp:$SALENTOANDROID_HOME/lib/android-support-v4.jar
+
+sootargs="-cp $sootcp:$androidcp:$1 -allow-phantom-refs -keep-line-number"
+java -ea -Xss50m -cp $sootcp:$SALENTO_ANDROID_HOME/classes driver.Driver $sootargs -process-dir $1 ${*:2}

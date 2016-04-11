@@ -1,4 +1,4 @@
-<project name="pliny-soot" default="compile" basedir=".">
+<project name="driver" default="compile" basedir=".">
 
   <!-- ===================================== -->
   <!-- Here alias -->
@@ -8,7 +8,7 @@
   <property name="basebin" value="./classes"/>
   <property name="baseout" value="./sootOutput"/>
   <property environment="env"/>
-  <property name="basedir" value="${env.PLINY_SOOT_HOME}"/>
+  <property name="basedir" value="${env.SALENTO_ANDROID_HOME}"/>
 
   <!-- ===================================== -->
   <!-- Here libraries (*.jar files) -->
@@ -33,17 +33,17 @@
   <!-- =========================================== -->
   <target name="updatecheck" depends="init">
   	<uptodate property="noupdates" targetfile="${basesrc}/.build">
-        <srcfiles dir="${basesrc}/pliny_soot" />
+        <srcfiles dir="${basesrc}/driver" />
 	</uptodate>
   </target>
 
   <!-- =========================================== -->
-  <!-- Compile the source files in pliny package   -->
+  <!-- Compile the source files in a package       -->
   <!-- =========================================== -->
   <target name="compile"
   		  depends="updatecheck"
 		  unless="noupdates">
-    <javac srcdir="${basesrc}/pliny_soot"	   
+    <javac srcdir="${basesrc}/driver"	   
            destdir="${basebin}"
            classpathref="classpath.core"
            debug="false">
@@ -52,11 +52,11 @@
   </target>
 
   <!-- =========================================== -->
-  <!-- Run the main driver in pliny                -->
+  <!-- Run the main driver                         -->
   <!-- =========================================== -->
   <target name="run" 
 	  depends="compile">
-    <java classname="pliny_soot.Driver"
+    <java classname="driver.Driver"
           classpathref="classpath.core"
 	  failonerror="true" 
 	  fork="true">
