@@ -51,6 +51,9 @@ public class TypeStateObject {
      * We're giving the benefit of doubt to the app, assuming that the
      * imprecision in our static collection of sequences is to blame. */
     public boolean hasValidHistory() {
+        if (! Options.validateSequences)
+            return true;
+
         SootMethod firstCall = history.getEvents().get(0).getSigma();
         if (!firstCall.isConstructor() && !firstCall.isStatic())
             return false;

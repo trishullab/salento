@@ -34,7 +34,8 @@ public class ArityPredicate implements Predicate {
     public static void apply(Stmt stmt) {
     }
 
-    public boolean enabled(Stmt stmt) {
+    public boolean enabled(StmtInstance stmtIns) {
+        Stmt stmt = stmtIns.getStmt();
         if (!stmt.containsInvokeExpr())
             return false;
 

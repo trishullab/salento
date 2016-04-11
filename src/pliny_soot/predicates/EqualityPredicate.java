@@ -35,7 +35,7 @@ public class EqualityPredicate implements Predicate {
     public static void apply(Stmt stmt) {
     }
 
-    public boolean enabled(Stmt stmt) {
+    public boolean enabled(StmtInstance stmtIns) {
         return false;
     }
 }

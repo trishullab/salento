@@ -36,6 +36,14 @@ public final class Util {
         return false;
     }
 
+    /** Check if the current app is interesting (i.e, has at least one class loaded that's of interest to us) */
+    public static boolean isRelevantApp() {
+        for (SootClass cls : Scene.v().getClasses())
+            if (Options.relevantTypestates.contains(cls.getName()))
+                return true;
+        return false;
+    }
+
     /** Special signature for data format */
     public static String mySignature(SootMethod m)
     {

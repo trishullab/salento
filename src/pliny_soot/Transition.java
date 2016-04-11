@@ -27,7 +27,7 @@ public class Transition {
         return to;
     }
 
-    public boolean enabled(Stmt stmt) {
+    public boolean enabled(StmtInstance stmt) {
         return predicate.enabled(stmt);
     }
 }

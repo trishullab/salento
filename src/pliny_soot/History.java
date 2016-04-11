@@ -50,9 +50,31 @@ public class History {
 
     @Override
     public String toString() {
+        if (events.size() == 0)
+            return "";
+
         String s = "";
+        if (Options.printSequenceStartEnd) {
+            /* print START with default property states */
+            s += "\"START\"[";
+            int nprops = events.get(0).getPropertyStates().size();
+            for (int i = 0; i < nprops; i++)
+                s += "0" + (i == nprops-1? "" : ",");
+            s += "][];";
+        }
+        
         for (Event e : events)
             s += e + ";";
+
+        if (Options.printSequenceStartEnd) {
+            /* print END with property states of the last event */
+            s += "\"END\"[";
+            for (PropertyState ps : events.get(events.size()-1).getPropertyStates())
+                s += ps.toString() + ",";
+            if (s.charAt(s.length() - 1) == ',')
+                s = s.substring(0, s.length() - 1);
+            s += "][];";
+        }
         return s;
     }
 }

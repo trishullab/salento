@@ -40,7 +40,8 @@ public class ArgValueREPredicate implements Predicate {
     public static void apply(Stmt stmt) {
     }
 
-    public boolean enabled(Stmt stmt) {
+    public boolean enabled(StmtInstance stmtIns) {
+        Stmt stmt = stmtIns.getStmt();
         return (enabledOnNegation? ! enabled_aux(stmt) : enabled_aux(stmt));
     }
 

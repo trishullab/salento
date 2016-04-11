@@ -8,5 +8,5 @@ import soot.jimple.Stmt;
 public interface Predicate {
 
     /** Returns true iff the predicate is enabled for the statement stmt */
-    public boolean enabled(Stmt stmt);
+    public boolean enabled(StmtInstance stmt);
 }

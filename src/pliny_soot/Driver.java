@@ -54,9 +54,31 @@ public class Driver {
             seqExt.setupProperties(new File(arg));
             argsList.remove("-properties-file");
         }
+        if (argsList.contains("-unit-graph")) {
+            String arg = argsList.remove(argsList.indexOf("-unit-graph")+1);
+            assert arg.equals("brief") || arg.equals("trap") : "invalid argument to -unit-graph";
+            pliny_soot.Options.unitGraph = arg;
+            argsList.remove("-unit-graph");
+        }
+        if (argsList.contains("-obey-android-entry-points")) {
+            String arg = argsList.remove(argsList.indexOf("-obey-android-entry-points")+1);
+            assert arg.equals("y") || arg.equals("n") : "invalid argument to -obey-android-entry-points";
+            pliny_soot.Options.obeyAndroidEntryPoints = arg.equals("y");
+            argsList.remove("-obey-android-entry-points");
+        }
+        if (argsList.contains("-validate-sequences")) {
+            String arg = argsList.remove(argsList.indexOf("-validate-sequences")+1);
+            assert arg.equals("y") || arg.equals("n") : "invalid argument to -validate-sequences";
+            pliny_soot.Options.validateSequences = arg.equals("y");
+            argsList.remove("-validate-sequences");
+        }
         if (argsList.contains("-print-location")) {
             pliny_soot.Options.printLocation = true;
             argsList.remove("-print-location");
+        }
+        if (argsList.contains("-print-sequence-startend")) {
+            pliny_soot.Options.printSequenceStartEnd = true;
+            argsList.remove("-print-sequence-startend");
         }
 
 

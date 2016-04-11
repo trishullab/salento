@@ -8,6 +8,7 @@ import soot.*;
 
 import soot.toolkits.graph.UnitGraph;
 import soot.toolkits.graph.BriefUnitGraph;
+import soot.toolkits.graph.TrapUnitGraph;
 
 import soot.jimple.Stmt;
 import soot.jimple.AssignStmt;
@@ -113,9 +114,12 @@ public class SequenceExtractor extends BodyTransformer
 
     @Override
     protected void internalTransform(Body body, String phaseName, Map options) {
+        if (! Util.isRelevantApp())
+            return;
+
         SootMethod method = body.getMethod();
 
-        if (! Util.isAndroidEntryPoint(method))
+        if (Options.obeyAndroidEntryPoints && ! Util.isAndroidEntryPoint(method))
             return;
 
         totalLOC += body.getUnits().size();
@@ -125,7 +129,7 @@ public class SequenceExtractor extends BodyTransformer
         numSequences = 0;
         //outfile.println("# " + Util.mySignature(method));
 
-        UnitGraph cfg = new BriefUnitGraph(body);
+        UnitGraph cfg = generateUnitGraph(body);
         Unit head = body.getUnits().getFirst();
 
         for (int i = 0; i < Options.MAX_SEQS; i++) {
@@ -188,7 +192,7 @@ public class SequenceExtractor extends BodyTransformer
 
         List<Unit> succs = cfg.getSuccsOf(stmt);
 
-        if (isReturnOrThrow(stmt)) {
+        if (isReturn(stmt) || (stmt instanceof ThrowStmt && succs.size() == 0)) {
             assert succs.size() == 0 : "more than one succ for return or throw";
             if (returnStack.empty())
                 handleTerminal(path, tos);
@@ -202,6 +206,7 @@ public class SequenceExtractor extends BodyTransformer
 
         assert succs.size() > 0 : "empty succs list when stmt is not a return or throw";
         Unit succ = succs.get(rng.nextInt(succs.size())); /* pick a random successor */
+
         assert succ != null : "succ is null";
         if (succs.size() > 1) /* record choice point along path */
             path.addChoicePoint(succ);
@@ -212,13 +217,14 @@ public class SequenceExtractor extends BodyTransformer
             throws SequenceExtractorException {
         InvokeExpr invokeExpr = stmt.getInvokeExpr();
         SootMethod callee = invokeExpr.getMethod();
+        Stmt succ;
 
-        if (handleInvokeRelevant(stmt, tos, cfg.getBody().getMethod())) {
-            extractSequence(stmt, cfg, path, tos, false);
+        if ((succ = handleInvokeRelevant(stmt, cfg, path, tos)) != null) {
+            extractSequence(succ, cfg, path, tos);
         }
         else if (appMethods.contains(callee)) { /* step into callee */
             Body body = callee.retrieveActiveBody();
-            UnitGraph calleeCfg = new BriefUnitGraph(body);
+            UnitGraph calleeCfg = generateUnitGraph(body);
             Unit head = body.getUnits().getFirst();
 
             returnStack.push(new CallContext(stmt, cfg));
@@ -244,8 +250,11 @@ public class SequenceExtractor extends BodyTransformer
                 outfile.println(t.getHistory());
     }
 
-    private boolean handleInvokeRelevant(Stmt stmt, List<TypeStateObject> tos, SootMethod currMethod) {
+    /* handles a relevant (API call) invocation and if successful, returns the successor statement
+     * to be executed, typically the next stmt or possibly a handler stmt in case of exception */
+    private Stmt handleInvokeRelevant(Stmt stmt, UnitGraph cfg, Path path, List<TypeStateObject> tos) {
         InvokeExpr invokeExpr = stmt.getInvokeExpr();
+        SootMethod currMethod = cfg.getBody().getMethod();
 
         Value v;
         if (invokeExpr instanceof InstanceInvokeExpr
@@ -260,7 +269,7 @@ public class SequenceExtractor extends BodyTransformer
             finalizePreviousHistory(tos, v);
         }
         else
-            return false; /* don't include static methods that don't return anything stored to an object */
+            return null; /* don't include static methods that don't return anything stored to an object */
         
         TypeStateObject t = null;
         for (TypeStateObject t1 : tos)
@@ -272,26 +281,49 @@ public class SequenceExtractor extends BodyTransformer
         if (t == null) { /* first time encountering this typestate */
             t = new TypeStateObject(v, getPropertiesClone());
             if (! t.isRelevant())
-                return false;
+                return null;
             tos.add(t);
         }
 
+
+        /* choose the next successor, and check... */
+        List<Unit> succs = cfg.getSuccsOf(stmt);
+        assert succs.size() > 0 : "empty succs list when choosing next succ";
+        Unit succ = succs.get(rng.nextInt(succs.size())); /* pick a random successor */
+        assert succ != null : "succ is null";
+        if (succs.size() > 1) /* record choice point along path */
+            path.addChoicePoint(succ);
+
+        /* ...if successor is the handler for a trap */
+        SootClass exceptionThrown = null;
+        for (Trap trap : cfg.getBody().getTraps())
+            if (succ == trap.getHandlerUnit()) {
+                exceptionThrown = trap.getException();
+                break;
+            }
+
+        /* create the StmtInstance and gather monitor states */
+        StmtInstance stmtIns = new StmtInstance(stmt);
+        stmtIns.setExceptionThrown(exceptionThrown);
+
         List<PropertyState> ps = new ArrayList<PropertyState>();
         for (PropertyAutomaton p : t.getProperties()) {
-            p.post(stmt);
+            p.post(stmtIns);
             ps.add(p.getState());
         }
 
+        /* record location info */
         LocationInfo location = new LocationInfo(stmt, currMethod);
 
+        /* Finally, create the event!! */
         Event e = new Event(invokeExpr.getMethod(), ps, location);
         t.getHistory().addEvent(e);
 
-        return true;
+        return (Stmt) succ;
     }
 
-    private boolean isReturnOrThrow(Stmt stmt) {
-        return stmt instanceof ReturnStmt || stmt instanceof ReturnVoidStmt|| stmt instanceof ThrowStmt;
+    private boolean isReturn(Stmt stmt) {
+        return stmt instanceof ReturnStmt || stmt instanceof ReturnVoidStmt;
     }
 
     /** Find a non-finalized typestate object (default/init: all objects in tos) representing v in tos,
@@ -312,5 +344,13 @@ public class SequenceExtractor extends BodyTransformer
             ps.add(pClone);
         }
         return ps;
+    }
+
+    private UnitGraph generateUnitGraph(Body body) {
+        if (Options.unitGraph.equals("brief"))
+            return new BriefUnitGraph(body);
+        else if (Options.unitGraph.equals("trap"))
+            return new TrapUnitGraph(body);
+        return null;
     }
 }

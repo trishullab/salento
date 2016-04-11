@@ -47,17 +47,22 @@ public class PropertyAutomaton {
     }
 
     /** Update internal state of this automaton if a transition is enabled */
-    public void post(Stmt stmt) {
-        int enabled = 0;
-        PropertyState nextState = state;
-        for (Transition t : transitions)
-            if (state.equals(t.from()) && t.enabled(stmt)) {
-                nextState = t.to();
-                enabled++;
-            }
+    public void post(StmtInstance stmt) {
+        boolean stateChange;
+        do {
+            stateChange = false;
+            int enabled = 0;
+            PropertyState nextState = state;
+            for (Transition t : transitions)
+                if (state.equals(t.from()) && t.enabled(stmt)) {
+                    nextState = t.to();
+                    stateChange = true;
+                    enabled++;
+                }
 
-        assert enabled <= 1 : "more than one enabled trans for " + stmt + " from " + state;
-        state = nextState;
+            assert enabled <= 1 : "more than one enabled trans for " + stmt + " from " + state;
+            state = nextState;
+        } while (stateChange);
     }
 
 
@@ -102,6 +107,7 @@ public class PropertyAutomaton {
                         type.equals("call")      ? new CallPredicate(rest) :
                         type.equals("arity")     ? new ArityPredicate(rest) :
                         type.equals("argvalRE")  ? new ArgValueREPredicate(rest) :
+                        type.equals("exception") ? new ExceptionPredicate(rest) :
                         null);
                 p.addTransition(t);
             } catch (NumberFormatException e) {
@@ -121,5 +127,6 @@ public class PropertyAutomaton {
         CallPredicate.apply(stmt);
         ArityPredicate.apply(stmt);
         ArgValueREPredicate.apply(stmt);
+        ExceptionPredicate.apply(stmt);
     }
 }

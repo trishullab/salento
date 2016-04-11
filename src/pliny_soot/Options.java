@@ -15,11 +15,25 @@ public final class Options
     /** maximum length of sequence */
     public static final int MAX_LEN = 1000;
 
+    /** validate each sequence before it's printed (by calling hasValidHistory()).
+     * true by default */
+    public static boolean validateSequences = true;
+
     /** print location info with each event? */
     public static boolean printLocation;
 
+    /** print START and END indicators for each sequence? */
+    public static boolean printSequenceStartEnd;
+
+    /** type of unit graph to generate ("brief"/"trap"). default is brief */
+    public static String unitGraph = "brief";
+
     /** Type states that we're interested in getting sequences on */
     public static List<String> relevantTypestates;
+
+    /** obey Android entry points (below). true by default.
+     * If false sequences will be extracted starting from every soot method */
+    public static boolean obeyAndroidEntryPoints = true;
 
     /** Android entry points */
     public static String[] androidEntryPoints =
