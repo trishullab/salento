@@ -29,8 +29,6 @@ def main():
                        help='form sequences from data every k steps')
     parser.add_argument('--num_epochs', type=int, default=30,
                        help='number of epochs')
-    parser.add_argument('--save_every', type=int, default=1,
-                       help='save frequency')
     parser.add_argument('--grad_clip', type=float, default=5.,
                        help='clip gradients at this value')
     parser.add_argument('--learning_rate', type=float, default=0.002,
@@ -59,16 +57,13 @@ def train(args):
         print('Iteration', e)
         model.model.fit(data_loader.xdata, data_loader.ydata, batch_size=args.batch_size,
                 nb_epoch=1)
+        model.model.save_weights(os.path.join(args.save_dir, 'model-weights.h5'), overwrite=True)
 
         start_index = random.randint(0, len(data_loader.tensor) - args.seq_length - 1)
         prime = data_loader.tensor[start_index: start_index + args.seq_length]
         prime = ''.join([data_loader.chars[c] for c in prime])
         print('priming with: ' + prime)
-
         model.sample(data_loader.chars, data_loader.vocab, num=100, prime=prime[-args.seq_length:])
-
-        if e % args.save_every == 0:
-            model.model.save_weights(os.path.join(args.save_dir, 'model-weights.h5'), overwrite=True)
 
 
 if __name__ == '__main__':
