@@ -23,13 +23,13 @@ def main():
                        help='number of layers in the RNN')
     parser.add_argument('--batch_size', type=int, default=50,
                        help='minibatch size')
-    parser.add_argument('--seq_length', type=int, default=50,
+    parser.add_argument('--seq_length', type=int, default=10,
                        help='RNN sequence length')
     parser.add_argument('--step', type=int, default=3,
                        help='form sequences from data every k steps')
-    parser.add_argument('--num_epochs', type=int, default=50,
+    parser.add_argument('--num_epochs', type=int, default=30,
                        help='number of epochs')
-    parser.add_argument('--save_every', type=int, default=1000,
+    parser.add_argument('--save_every', type=int, default=1,
                        help='save frequency')
     parser.add_argument('--grad_clip', type=float, default=5.,
                        help='clip gradients at this value')
@@ -68,8 +68,7 @@ def train(args):
         model.sample(data_loader.chars, data_loader.vocab, num=100, prime=prime[-args.seq_length:])
 
         if e % args.save_every == 0:
-            print('saving weights...')
-            model.model.save_weights(os.path.join(args.save_dir, 'model-weights.h5'))
+            model.model.save_weights(os.path.join(args.save_dir, 'model-weights.h5'), overwrite=True)
 
 
 if __name__ == '__main__':
