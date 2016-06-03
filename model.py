@@ -1,5 +1,5 @@
 from keras.models import Sequential
-from keras.layers import Dense, Activation, LSTM, TimeDistributed
+from keras.layers import Dense, Activation, LSTM, TimeDistributed, Dropout
 from keras.layers.embeddings import Embedding
 from keras.optimizers import Adam
 import numpy as np
@@ -10,8 +10,10 @@ class Model():
         self.args = args
         self.model = Sequential()
         self.model.add(LSTM(args.rnn_size, input_shape=(args.seq_length, args.vocab_size), return_sequences=True))
+        self.model.add(Dropout(0.2))
         for i in range(1, args.num_layers):
             self.model.add(LSTM(args.rnn_size, return_sequences=False))
+            self.model.add(Dropout(0.2))
         self.model.add(Dense(args.vocab_size))
         self.model.add(Activation('softmax'))
         
