@@ -6,12 +6,8 @@ import numpy as np
 import sys
 
 class Model():
-    def __init__(self, args, infer=False):
+    def __init__(self, args):
         self.args = args
-        if infer:
-            args.batch_size = 1
-            args.seq_length = 1
-
         self.model = Sequential()
         self.model.add(LSTM(args.rnn_size, input_shape=(args.seq_length, args.vocab_size), return_sequences=True))
         for i in range(1, args.num_layers):
