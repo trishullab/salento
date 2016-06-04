@@ -30,8 +30,7 @@ def sample(args):
         chars, vocab = cPickle.load(f)
     model = Model(saved_args)
     model.model.load_weights(os.path.join(args.save_dir, 'weights.h5'))
-    prime = args.prime[-saved_args.seq_length:]
-    model.sample(chars, vocab, args.n, prime, args.sample)
+    model.sample(chars, vocab, args.n, args.prime, args.sample)
     print()
 
 if __name__ == '__main__':

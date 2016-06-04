@@ -52,16 +52,18 @@ class TextLoader():
 
         self.tensor = self.tensor[:self.num_batches * self.batch_size * self.seq_length]
         sentences = []
-        next_chars = []
+        next_sentences = []
         for i in range(0, len(self.tensor) - self.seq_length, self.step):
             sentences.append(self.tensor[i: i + self.seq_length])
-            next_chars.append(self.tensor[i + self.seq_length])
+            next_sentences.append(self.tensor[i + 1: i + 1 + self.seq_length])
         print('nb sequences:', len(sentences))
         
         print('Vectorization...')
         self.xdata = np.zeros((len(sentences), self.seq_length, self.vocab_size), dtype=np.bool)
-        self.ydata = np.zeros((len(sentences), self.vocab_size), dtype=np.bool)
+        self.ydata = np.zeros((len(next_sentences), self.seq_length, self.vocab_size), dtype=np.bool)
         for i, sentence in enumerate(sentences):
             for t, char in enumerate(sentence):
                 self.xdata[i, t, char] = 1
-            self.ydata[i, next_chars[i]] = 1
+        for i, next_sentence in enumerate(next_sentences):
+            for t, char in enumerate(next_sentence):
+                self.ydata[i, t, char] = 1

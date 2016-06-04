@@ -87,7 +87,7 @@ def train(args):
         prime = data_loader.tensor[start_index: start_index + args.seq_length]
         prime = ''.join([data_loader.chars[c] for c in prime])
         print('priming with: ' + prime)
-        model.sample(data_loader.chars, data_loader.vocab, num=100, prime=prime[-args.seq_length:])
+        model.sample(data_loader.chars, data_loader.vocab, num=100, prime=prime)
 
 
 if __name__ == '__main__':
