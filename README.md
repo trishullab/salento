@@ -5,6 +5,7 @@ Inspired from [char-rnn-tensorflow](https://github.com/sherjilozair/char-rnn-ten
 
 # Requirements
 - [Keras](http://keras.io)
+- h5py for Python, to save models
 
 # Basic Usage
 To train with default parameters on the tinyshakespeare corpus, run `python train.py`.
