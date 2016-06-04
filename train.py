@@ -53,14 +53,14 @@ def train(args):
         assert os.path.isfile(os.path.join(args.init_from,"chars_vocab.pkl")),"chars_vocab.pkl.pkl file does not exist in path %s" % args.init_from
 
         # open old config and check if models are compatible
-        with open(os.path.join(args.init_from, 'config.pkl')) as f:
+        with open(os.path.join(args.init_from, 'config.pkl'), 'rb') as f:
             saved_model_args = cPickle.load(f)
         need_be_same=["rnn_size","num_layers","seq_length"]
         for checkme in need_be_same:
             assert vars(saved_model_args)[checkme]==vars(args)[checkme],"Command line argument and saved model disagree on '%s' "%checkme
         
         # open saved vocab/dict and check if vocabs/dicts are compatible
-        with open(os.path.join(args.init_from, 'chars_vocab.pkl')) as f:
+        with open(os.path.join(args.init_from, 'chars_vocab.pkl'), 'rb') as f:
             saved_chars, saved_vocab = cPickle.load(f)
         assert saved_chars==data_loader.chars, "Data and loaded model disagreee on character set!"
         assert saved_vocab==data_loader.vocab, "Data and loaded model disagreee on dictionary mappings!"
