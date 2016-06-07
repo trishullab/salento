@@ -18,6 +18,7 @@ class Model():
         self.model.add(Activation('softmax'))
         
         adam = Adam(lr=args.learning_rate, clipnorm=args.grad_clip)
+        print('Compiling model...')
         self.model.compile(loss='categorical_crossentropy', optimizer=adam)
 
     def sample(self, chars, vocab, num=100, prime=' ', sampling_type=1):

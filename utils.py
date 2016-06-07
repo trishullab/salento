@@ -2,13 +2,15 @@ import os
 import collections
 from six.moves import cPickle
 import numpy as np
+from salento import SalentoJsonParser
 
 class TextLoader():
-    def __init__(self, data_dir, batch_size, seq_length, step):
+    def __init__(self, data_dir, batch_size, seq_length, step, salento=False):
         self.data_dir = data_dir
         self.batch_size = batch_size
         self.seq_length = seq_length
         self.step = step
+        self.salento = salento
 
         input_file = os.path.join(data_dir, "input.txt")
         vocab_file = os.path.join(data_dir, "vocab.pkl")
@@ -24,7 +26,7 @@ class TextLoader():
 
     def preprocess(self, input_file, vocab_file, tensor_file):
         with open(input_file, "r") as f:
-            data = f.read()
+            data = f.read() if not self.salento else SalentoJsonParser(f).as_tokens(start_end=True)
         counter = collections.Counter(data)
         count_pairs = sorted(counter.items(), key=lambda x: -x[1])
         self.chars, _ = zip(*count_pairs)
@@ -57,6 +59,7 @@ class TextLoader():
             sentences.append(self.tensor[i: i + self.seq_length])
             next_sentences.append(self.tensor[i + 1: i + 1 + self.seq_length])
         print('nb sequences:', len(sentences))
+        print('vocabulary size:', self.vocab_size)
         
         print('Vectorization...')
         self.xdata = np.zeros((len(sentences), self.seq_length, self.vocab_size), dtype=np.bool)

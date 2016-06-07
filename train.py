@@ -32,6 +32,8 @@ def main():
                        help='clip gradients at this value')
     parser.add_argument('--learning_rate', type=float, default=0.002,
                        help='learning rate')
+    parser.add_argument('--salento', action='store_true',
+                       help='data is Salento (JSON) output')
     parser.add_argument('--init_from', type=str, default=None,
                        help="""continue training from saved model at this path. Path must contain files saved by previous training process: 
                             'config.pkl'        : configuration;
@@ -42,7 +44,7 @@ def main():
     train(args)
 
 def train(args):
-    data_loader = TextLoader(args.data_dir, args.batch_size, args.seq_length, args.step)
+    data_loader = TextLoader(args.data_dir, args.batch_size, args.seq_length, args.step, args.salento)
     args.vocab_size = data_loader.vocab_size
     
     # check compatibility if training is continued from previously saved model
