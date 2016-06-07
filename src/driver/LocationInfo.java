@@ -9,6 +9,7 @@ import soot.tagkit.SourceFileTag;
 import soot.tagkit.LineNumberTag;
 
 import com.google.gson.annotations.Expose;
+import com.google.gson.annotations.SerializedName;
 
 /** Information about the location of an event */
 public class LocationInfo
@@ -18,8 +19,10 @@ public class LocationInfo
 
     /* Primitives for Gson */
     @Expose
+    @SerializedName("file") 
     private String fileName;
     @Expose
+    @SerializedName("line") 
     private int lineNum;
 
     public LocationInfo(Stmt stmt, SootMethod method) {

@@ -7,10 +7,12 @@ import java.util.ArrayList;
 import java.io.PrintStream;
 
 import com.google.gson.annotations.Expose;
+import com.google.gson.annotations.SerializedName;
 
 /** History of events */
 public class History {
     @Expose
+    @SerializedName("sequence") 
     private List<Event> events;
 
     /** Flag that tells whether this history has been finalized.

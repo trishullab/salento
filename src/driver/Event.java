@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import soot.*;
 
 import com.google.gson.annotations.Expose;
+import com.google.gson.annotations.SerializedName;
 
 /** A pair of API call and list of monitor states */
 public class Event
@@ -16,9 +17,11 @@ public class Event
 
     /* Primitives for Gson */
     @Expose
-    private String call;
+    @SerializedName("call") 
+    private String sigma_;
     @Expose
-    private List<Integer> states;
+    @SerializedName("states") 
+    private List<Integer> monitorStates_;
 
     @Expose
     private LocationInfo location;
@@ -28,10 +31,10 @@ public class Event
         this.monitorStates = monitorStates;
         this.location = location;
 
-        this.call = Util.mySignature(sigma);
-        this.states = new ArrayList<Integer>();
+        this.sigma_ = Util.mySignature(sigma);
+        this.monitorStates_ = new ArrayList<Integer>();
         for (MonitorState s : monitorStates)
-            this.states.add(s.getState());
+            this.monitorStates_.add(s.getState());
     }
 
     public SootMethod getSigma() {
