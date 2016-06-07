@@ -80,9 +80,15 @@ public class Driver {
             driver.Options.printSequenceStartEnd = true;
             argsList.remove("-print-sequence-startend");
         }
+        if (argsList.contains("-print-JSON")) {
+            driver.Options.printJSON = true;
+            argsList.remove("-print-JSON");
+        }
 
 
+        seqExt.begin();
         jtp.add(new Transform("jtp.sequence_extractor", seqExt));
         soot.Main.main(argsList.toArray(new String[0]));
+        seqExt.end();
     }
 }

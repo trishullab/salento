@@ -14,6 +14,7 @@
   <!-- Here libraries (*.jar files) -->
   <!-- ===================================== -->
   <path id="classpath.core">
+      <pathelement path="${baselib}/gson-2.6.3.jar" />
       <pathelement path="${baselib}/jasminclasses-2.5.0.jar" />
       <pathelement path="${baselib}/java_cup.jar" />
       <pathelement path="${baselib}/polyglot.jar" />

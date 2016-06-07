@@ -7,6 +7,7 @@ fi
 
 export sootcp=$SALENTO_ANDROID_HOME/lib/soot-trunk.jar
 export sootcp=$sootcp:$SALENTO_ANDROID_HOME/lib/jasminclasses-2.5.0.jar
+export sootcp=$sootcp:$SALENTO_ANDROID_HOME/lib/gson-2.6.3.jar
 export sootcp=$sootcp:$SALENTO_ANDROID_HOME/lib/polyglot.jar
 export sootcp=$sootcp:$SALENTO_ANDROID_HOME/lib/java_cup.jar
 export sootcp=$sootcp:$JAVA_HOME/jre/lib/rt.jar

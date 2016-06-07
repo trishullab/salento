@@ -24,6 +24,9 @@ import soot.jimple.StaticInvokeExpr;
 import soot.jimple.toolkits.callgraph.CallGraph;
 import soot.jimple.toolkits.callgraph.Edge;
 
+import com.google.gson.*;
+import com.google.gson.annotations.Expose;
+
 /** The sequence extractor, implemented as a SceneTransformer */
 public class SequenceExtractor extends BodyTransformer
 {
@@ -61,12 +64,18 @@ public class SequenceExtractor extends BodyTransformer
     /** Methods encountered (for LOC count) */
     private List<SootMethod> methodsAnalyzed;
 
+    /** List of sequences */
+    @Expose
+    private List<History> data;
+
     private Random rng;
 
     class SequenceExtractorException extends Exception {}
     class SequenceLengthException extends SequenceExtractorException {}
     class TimeoutException extends SequenceExtractorException {}
 
+    /** Gson serializer */
+    private Gson gson;
 
     public SequenceExtractor() {
         totalSequences = 0;
@@ -77,6 +86,9 @@ public class SequenceExtractor extends BodyTransformer
         monitors = new ArrayList<Monitor>();
         rng = new Random(System.currentTimeMillis());
         outfile = System.out;
+        data = new ArrayList<History>();
+        gson = new GsonBuilder().setPrettyPrinting().
+            excludeFieldsWithoutExposeAnnotation().create();
     }
 
     public void setupOutput(File f) {
@@ -110,6 +122,20 @@ public class SequenceExtractor extends BodyTransformer
             System.err.println("IO Error occurred:" + e.getMessage());
             System.exit(1);
         }
+    }
+
+    /** Include anything that needs to be done before beginning soot */
+    public void begin() {
+
+    }
+
+    /** Include anything that needs to be done after soot ends */
+    public void end() {
+        if (Options.printJSON)
+            outfile.println(gson.toJson(this));
+        else
+            for (History sequence : data)
+                outfile.println(sequence);
     }
 
     @Override
@@ -246,8 +272,7 @@ public class SequenceExtractor extends BodyTransformer
         numSequences += tos.size();
         for (TypeStateObject t : tos)
             if (t.hasValidHistory())
-                //outfile.println(t.getRelevantAncestor() + "#" + t.getHistory());
-                outfile.println(t.getHistory());
+                data.add(t.getHistory());
     }
 
     /* handles a relevant (API call) invocation and if successful, returns the successor statement

@@ -55,9 +55,9 @@ public final class Util {
         Type returnType = m.getReturnType();
 
         StringBuffer buffer = new StringBuffer();
-        buffer.append("\"" + Scene.v().quotedNameOf(cl.getName()) + ": ");
+        buffer.append((!Options.printJSON? "\"": "") + Scene.v().quotedNameOf(cl.getName()) + ": ");
         buffer.append(SootMethod.getSubSignature(name, params, returnType));
-        buffer.append("\"");
+        buffer.append(!Options.printJSON? "\"": "");
 
         return buffer.toString().intern();
     }

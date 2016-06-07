@@ -6,8 +6,11 @@ import java.util.List;
 import java.util.ArrayList;
 import java.io.PrintStream;
 
+import com.google.gson.annotations.Expose;
+
 /** History of events */
 public class History {
+    @Expose
     private List<Event> events;
 
     /** Flag that tells whether this history has been finalized.

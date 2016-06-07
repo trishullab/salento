@@ -20,10 +20,13 @@ public final class Options
     public static boolean validateSequences = true;
 
     /** print location info with each event? */
-    public static boolean printLocation;
+    public static boolean printLocation = false;
+
+    /** print in JSON or old format */
+    public static boolean printJSON = false;
 
     /** print START and END indicators for each sequence? */
-    public static boolean printSequenceStartEnd;
+    public static boolean printSequenceStartEnd = false;
 
     /** type of unit graph to generate ("brief"/"trap"). default is brief */
     public static String unitGraph = "brief";
