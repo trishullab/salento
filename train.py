@@ -71,12 +71,15 @@ def train(args):
         cPickle.dump(args, f)
     with open(os.path.join(args.save_dir, 'chars_vocab.pkl'), 'wb') as f:
         cPickle.dump((data_loader.chars, data_loader.vocab), f)
+    with open(os.path.join(args.save_dir, 'primes.pkl'), 'wb') as f:
+        cPickle.dump(data_loader.primes, f)
         
     model = Model(args)
 
     if args.init_from is not None:
         model.model.load_weights(os.path.join(args.init_from, 'weights.h5'))
 
+    delim = ';' if args.salento else ''
     for e in range(args.num_epochs):
         print()
         print('-' * 50)
@@ -85,12 +88,12 @@ def train(args):
                 nb_epoch=1)
         model.model.save_weights(os.path.join(args.save_dir, 'weights.h5'), overwrite=True)
 
-        start_index = random.randint(0, len(data_loader.tensor) - args.seq_length - 1)
-        prime = data_loader.tensor[start_index: start_index + args.seq_length]
-        prime = ''.join([data_loader.chars[c] for c in prime])
-        print('priming with: ' + prime)
-        model.sample(data_loader.chars, data_loader.vocab, num=100, prime=prime)
-
+        prime = random.choice(data_loader.primes)
+        print('priming with:')
+        print(delim.join([data_loader.chars[c] for c in prime]))
+        sample, _ = model.sample(prime)
+        sample = [data_loader.chars[c] for c in sample]
+        print(delim.join(sample))
 
 if __name__ == '__main__':
     main()

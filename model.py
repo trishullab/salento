@@ -21,36 +21,25 @@ class Model():
         print('Compiling model...')
         self.model.compile(loss='categorical_crossentropy', optimizer=adam)
 
-    def sample(self, chars, vocab, num=100, prime=' ', sampling_type=1):
+    def sample(self, prime, num=100):
 
         def weighted_pick(weights):
             t = np.cumsum(weights)
             s = np.sum(weights)
             return(int(np.searchsorted(t, np.random.rand(1)*s)))
 
-        ret = []
+        sample = []
+        prob = []
         window = prime[-self.args.seq_length:]
         for n in range(num):
             x = np.zeros((1, self.args.seq_length, self.args.vocab_size))
-            for t, char in enumerate(window):
-                x[0, t, vocab[char]] = 1.
+            for t, c in enumerate(window):
+                x[0, t, c] = 1.
             p = self.model.predict(x, verbose=0)[0][self.args.seq_length-1]
-
-            if sampling_type == 0:
-                sample = np.argmax(p)
-            elif sampling_type == 2:
-                if char == ' ':
-                    sample = weighted_pick(p)
-                else:
-                    sample = np.argmax(p)
-            else: # sampling_type == 1 default:
-                sample = weighted_pick(p)
-
-            pred = chars[sample]
-            window = window[1:] + pred
-            sys.stdout.write(pred)
-            sys.stdout.flush()
-            ret += pred
-        return ret
+            s = weighted_pick(p)
+            window = window[1:] + [s]
+            sample += [s]
+            prob.append(p)
+        return sample, prob
 
 

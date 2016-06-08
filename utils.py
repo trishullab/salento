@@ -1,5 +1,6 @@
 import os
 import collections
+import random
 from six.moves import cPickle
 import numpy as np
 from salento import SalentoJsonParser
@@ -58,6 +59,7 @@ class TextLoader():
         for i in range(0, len(self.tensor) - self.seq_length, self.step):
             sentences.append(self.tensor[i: i + self.seq_length])
             next_sentences.append(self.tensor[i + 1: i + 1 + self.seq_length])
+        self.primes = list(map(np.ndarray.tolist, random.sample(sentences, 10)))
         print('nb sequences:', len(sentences))
         print('vocabulary size:', self.vocab_size)
         
