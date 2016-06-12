@@ -19,6 +19,9 @@ public final class Options
      * true by default */
     public static boolean validateSequences = true;
 
+    /** print branch events */
+    public static boolean printBranches = false;
+
     /** print location info with each event? */
     public static boolean printLocation = false;
 

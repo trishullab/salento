@@ -23,7 +23,7 @@ public class LocationInfo
     private String fileName;
     @Expose
     @SerializedName("line") 
-    private int lineNum;
+    private Integer lineNum;
 
     public LocationInfo(Stmt stmt, SootMethod method) {
         this.fileTag = (SourceFileTag) method.getDeclaringClass().getTag("SourceFileTag");
@@ -39,8 +39,8 @@ public class LocationInfo
         return fileTag.getSourceFile();
     }
 
-    public int getLineNumber() {
-        return lnTag.getLineNumber();
+    public Integer getLineNumber() {
+        return new Integer(lnTag.getLineNumber());
     }
 
     @Override

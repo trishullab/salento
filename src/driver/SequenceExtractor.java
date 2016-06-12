@@ -234,8 +234,14 @@ public class SequenceExtractor extends BodyTransformer
         Unit succ = succs.get(rng.nextInt(succs.size())); /* pick a random successor */
 
         assert succ != null : "succ is null";
-        if (succs.size() > 1) /* record choice point along path */
+        if (succs.size() > 1) { /* record choice point along path, and add branch event to all histories */
             path.addChoicePoint(succ);
+            if (Options.printBranches) {
+                Integer numBranches = succs.size();
+                for (TypeStateObject t : tos)
+                    t.getHistory().addEvent(new Event(numBranches));
+            }
+        }
         extractSequence(succ, cfg, path, tos);
     }
 

@@ -72,6 +72,10 @@ public class Driver {
             driver.Options.validateSequences = arg.equals("y");
             argsList.remove("-validate-sequences");
         }
+        if (argsList.contains("-print-branches")) {
+            driver.Options.printBranches = true;
+            argsList.remove("-print-branches");
+        }
         if (argsList.contains("-print-location")) {
             driver.Options.printLocation = true;
             argsList.remove("-print-location");

@@ -24,17 +24,32 @@ public class Event
     private List<Integer> monitorStates_;
 
     @Expose
+    @SerializedName("branches")
+    private Integer numBranches;
+
+    @Expose
     private LocationInfo location;
 
+    /* Branch event - only record number of branches */
+    public Event(Integer numBranches) {
+        this.numBranches = numBranches;
+    }
+
+    /* Call event - record call, states and location */
     public Event(SootMethod sigma, List<MonitorState> monitorStates, LocationInfo location) {
         this.sigma = sigma;
         this.monitorStates = monitorStates;
-        this.location = location;
+        if (Options.printLocation)
+            this.location = location;
 
         this.sigma_ = Util.mySignature(sigma);
         this.monitorStates_ = new ArrayList<Integer>();
         for (MonitorState s : monitorStates)
             this.monitorStates_.add(s.getState());
+    }
+
+    public Integer getNumBranches() {
+        return numBranches;
     }
 
     public SootMethod getSigma() {
