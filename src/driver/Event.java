@@ -14,6 +14,7 @@ public class Event
 {
     private SootMethod sigma;
     private List<MonitorState> monitorStates;
+    private LocationInfo location;
 
     /* Primitives for Gson */
     @Expose
@@ -22,13 +23,12 @@ public class Event
     @Expose
     @SerializedName("states") 
     private List<Integer> monitorStates_;
-
     @Expose
     @SerializedName("branches")
     private Integer numBranches;
-
     @Expose
-    private LocationInfo location;
+    @SerializedName("location")
+    private String location_;
 
     /* Branch event - only record number of branches */
     public Event(Integer numBranches) {
@@ -39,8 +39,10 @@ public class Event
     public Event(SootMethod sigma, List<MonitorState> monitorStates, LocationInfo location) {
         this.sigma = sigma;
         this.monitorStates = monitorStates;
-        if (Options.printLocation)
+        if (Options.printLocation) {
             this.location = location;
+            this.location_ = location.toString();
+        }
 
         this.sigma_ = Util.mySignature(sigma);
         this.monitorStates_ = new ArrayList<Integer>();
