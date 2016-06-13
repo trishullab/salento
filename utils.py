@@ -59,7 +59,7 @@ class TextLoader():
         for i in range(0, len(self.tensor) - self.seq_length, self.step):
             sentences.append(self.tensor[i: i + self.seq_length])
             next_sentences.append(self.tensor[i + 1: i + 1 + self.seq_length])
-        self.primes = list(map(np.ndarray.tolist, random.sample(sentences, 10)))
+        self.primes = list(map(np.ndarray.tolist, self.sample_primes(sentences)))
         print('nb sequences:', len(sentences))
         print('vocabulary size:', self.vocab_size)
         
@@ -72,3 +72,8 @@ class TextLoader():
         for i, next_sentence in enumerate(next_sentences):
             for t, char in enumerate(next_sentence):
                 self.ydata[i, t, char] = 1
+
+    def sample_primes(self, sentences):
+        if self.salento: # get sentences ending in 'START'
+            sentences = [sentence for sentence in sentences if sentence[-1] == self.vocab['START']]
+        return random.sample(sentences, 10)
