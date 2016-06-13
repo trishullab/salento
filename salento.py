@@ -1,5 +1,19 @@
 import json
 
+def type_of(event):
+    if 'call' in event:
+        return 'call'
+    if 'branches' in event:
+        return 'branches'
+    raise KeyError('Malformed event', event)
+
+def to_model_alphabet(sequence, vocab):
+    s = []
+    call_events = [event for event in sequence if type_of(event) == 'call']
+    for event in call_events:
+        s += [event['call']] + ['m' + str(i+1) + '_' + state for i, state in enumerate(event['states'])]
+    return list(map(vocab.get, s))
+
 class SalentoJsonParser():
     def __init__(self, f):
         self.json_data = json.loads(f.read())
@@ -13,8 +27,25 @@ class SalentoJsonParser():
             for data_point in package['data']:
                 ret += ['START'] if start_end else []
                 for event in data_point['sequence']:
-                    ret += [event['call']]
-                    for i, state in enumerate(event['states']):
-                        ret += [str(i) + '_' + str(state)]
+                    if type_of(event) == 'call':
+                        ret += [event['call']]
+                        for i, state in enumerate(event['states']):
+                            ret += [str(i) + '_' + str(state)]
                 ret += ['END'] if start_end else []
         return ret
+
+    def get_call_locations(self):
+        locations = []
+        for package in self.json_data['packages']:
+            for data_point in package['data']:
+                for event in data_point['sequence']:
+                    if type_of(event) == 'call':
+                        locations.append(event['location'])
+        return set(locations)
+
+    def as_sequences(self):
+        seqs = []
+        for package in self.json_data['packages']:
+            for data_point in package['data']:
+                seqs.append(data_point)
+        return seqs
