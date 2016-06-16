@@ -6,4 +6,5 @@ done
 rm -f *.pyc
 rm -f plots/*
 rm -f save/*
+rm -f debug.log
 rm -rf __pycache__
