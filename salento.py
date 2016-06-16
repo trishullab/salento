@@ -7,6 +7,9 @@ def type_of(event):
         return 'branches'
     raise KeyError('Malformed event', event)
 
+def calls_in_sequence(sequence):
+    return [event for event in sequence if type_of(event) == 'call']
+
 def to_model_alphabet(sequence, vocab):
     s = []
     call_events = [event for event in sequence if type_of(event) == 'call']

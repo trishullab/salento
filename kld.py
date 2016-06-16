@@ -5,7 +5,7 @@ import os
 from six.moves import cPickle
 from matplotlib import pyplot as plt
 from scipy.interpolate import spline
-from salento import SalentoJsonParser, type_of, to_model_alphabet
+from salento import SalentoJsonParser, type_of, to_model_alphabet, calls_in_sequence
 from model import Model
 
 def main():
@@ -38,54 +38,63 @@ class KLD():
 
     def compute_kld(self, data):
 
-        def sequences_ending_in(location, sequences):
-            ret = []
+        # computes paths that terminate at location, and also
+        # the call sequences that terminate at location (domain)
+        def paths_ending_at(location, sequences):
+            paths = []
+            domain = []
             for sequence in sequences:
                 sequence = sequence['sequence']
                 for i, event in enumerate(sequence):
                     if type_of(event) == 'call' and event['location'] == location:
-                        ret.append(sequence[0: i+1])
-            return ret
+                        s = sequence[0: i+1] # also includes branches
+                        os = [e for e in s if type_of(e) == 'call']
+                        if not s in paths:
+                            paths.append(s)
+                        if not os in domain:
+                            domain.append(os)
+            return paths, domain
 
         parser = SalentoJsonParser(data)
         sequences = parser.as_sequences()
-        kld_l = dict([(l, self.kld(l, sequences_ending_in(l, sequences)))
-                for l in parser.get_call_locations()])
+        kld_l = {}
+        for l in parser.get_call_locations():
+            paths, domain = paths_ending_at(l, sequences)
+            kld_l[l] = self.kld(l, paths, domain)
         return kld_l
 
-    def kld(self, location, sequences):
+    def kld(self, l, paths, domain):
+        prime = random.choice(self.primes)
 
-        def norm(sequence):
-            return [float(i) / sum(sequence) for i in sequence]
-
-        def pprob(sequence, prime):
-            sequence = to_model_alphabet(sequence, self.vocab)
-            pr = [self.model.sample(prime + sequence[0: i+1], num=1)[1][0][event]
-                  for i, event in enumerate(sequence)]
-            return np.prod(pr)
+        def norm(arr):
+            return [float(i) / sum(arr) for i in arr]
 
         def qprob(sequence):
-            pr = [1./event['branches'] for event in sequence if type_of(event) == 'branches']
+            sequence = to_model_alphabet(sequence, self.vocab) + [self.vocab['END']]
+            pr = self.model.probability(prime, sequence)
+            pr = [p[event] for p, event in zip(pr, sequence)]
             return np.prod(pr)
 
-        prime = random.choice(self.primes)
-        P = norm([pprob(sequence, prime) for sequence in sequences])
-        Q = norm([qprob(sequence) for sequence in sequences])
+        def pprob(sequence):
+            def pprob_path(path):
+                pr = [1./event['branches'] for event in path if type_of(event) == 'branches']
+                return np.prod(pr)
+            pr = [pprob_path(path) for path in paths if calls_in_sequence(path) == sequence]
+            return np.sum(pr)
+
+        P = norm([pprob(sequence) for sequence in domain])
+        Q = [qprob(sequence) for sequence in domain]
         K = list(map(lambda p, q: p * np.log(p / q), P, Q))
         if self.args.plot_dir is not None:
-            self.save_plot(location, P, Q, K)
+            self.save_plot(l, P, Q, K)
         return sum(K)
 
     def save_plot(self, location, P, Q, K):
         data = sorted(zip(P, Q, K), key=lambda x: x[1])
         x = np.array(range(0, len(data)))
-        x_smooth = np.linspace(x.min(), x.max(), 300)
-        P_smooth = spline(x, np.array([d[0] for d in data]), x_smooth)
-        Q_smooth = spline(x, np.array([d[1] for d in data]), x_smooth)
-        K_smooth = spline(x, np.array([d[2] for d in data]), x_smooth)
-        line1, = plt.plot(x_smooth, P_smooth, label='True dist.', c='b', linewidth=2)
-        line2, = plt.plot(x_smooth, Q_smooth, label='Observed dist.', c='g', linewidth=2)
-        line3, = plt.plot(x_smooth, K_smooth, label='KLD', c='r', linewidth=2)
+        line1, = plt.plot(x, P, label='P', c='b', linewidth=2)
+        line2, = plt.plot(x, Q, label='Q', c='g', linewidth=2)
+        line3, = plt.plot(x, K, label='KLD', c='r', linewidth=2)
         plt.ylabel('Probability')
         plt.xlabel('Sequence')
         plt.grid(alpha=0.8)

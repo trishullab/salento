@@ -21,6 +21,18 @@ class Model():
         print('Compiling model...')
         self.model.compile(loss='categorical_crossentropy', optimizer=adam)
 
+    def probability(self, prime, sample):
+        prob = []
+        window = prime[-self.args.seq_length:]
+        for s in sample:
+            x = np.zeros((1, self.args.seq_length, self.args.vocab_size))
+            for t, c in enumerate(window):
+                x[0, t, c] = 1.
+            p = self.model.predict(x, verbose=0)[0][self.args.seq_length-1]
+            window = window[1:] + [s]
+            prob.append(p)
+        return prob
+
     def sample(self, prime, num=100):
 
         def weighted_pick(weights):
