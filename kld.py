@@ -2,6 +2,7 @@ import argparse
 import numpy as np
 import random
 import os
+import logging as log
 from six.moves import cPickle
 from matplotlib import pyplot as plt
 from scipy.interpolate import spline
@@ -16,6 +17,8 @@ def main():
                        help='Salento\'s output file in JSON')
     argparser.add_argument('--plot_dir', type=str, default=None,
                        help='directory to save KLD plots in')
+    argparser.add_argument('--debug', action='store_true',
+                       help='enable printing debug log to debug.log')
     args = argparser.parse_args()
     kl = KLD(args)
 
@@ -35,6 +38,8 @@ class KLD():
             self.primes = cPickle.load(f)
         self.model = Model(saved_args)
         self.model.model.load_weights(os.path.join(args.save_dir, 'weights.h5'))
+        if args.debug:
+            log.basicConfig(level=log.DEBUG, filename='debug.log', filemode='w', format='%(message)s')
 
     def compute_kld(self, data):
 
@@ -73,6 +78,8 @@ class KLD():
             sequence = to_model_alphabet(sequence, self.vocab) + [self.vocab['END']]
             pr = self.model.probability(prime, sequence)
             pr = [p[event] for p, event in zip(pr, sequence)]
+            log.debug([self.chars[e] for e in sequence])
+            log.debug(pr)
             return np.prod(pr)
 
         def pprob(sequence):
@@ -82,9 +89,15 @@ class KLD():
             pr = [pprob_path(path) for path in paths if calls_in_sequence(path) == sequence]
             return np.sum(pr)
 
+        log.debug('')
+        log.debug(l)
         P = norm([pprob(sequence) for sequence in domain])
         Q = [qprob(sequence) for sequence in domain]
         K = list(map(lambda p, q: p * np.log(p / q), P, Q))
+        log.debug('P: ' + ' '.join('{:.2f}'.format(e) for e in P))
+        log.debug('Q: ' + ' '.join('{:.2e}'.format(e) for e in Q))
+        log.debug('K: ' + ' '.join('{:.2f}'.format(e) for e in K))
+        log.debug('')
         if self.args.plot_dir is not None:
             self.save_plot(l, P, Q, K)
         return sum(K)
