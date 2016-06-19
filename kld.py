@@ -23,7 +23,13 @@ def main():
     kl = KLD(args)
 
     with open(args.data_file) as data:
-        kld = kl.compute_kld(data)
+        parser = SalentoJsonParser(data)
+    
+    for pack in parser.package_names():
+        sequences = parser.as_sequences(pack)
+        locations = parser.get_call_locations(pack)
+        kld = kl.compute_kld(locations, sequences)
+        print('### ' + pack)
         for location in kld:
             print('{:35s} : {:e}'.format(location, kld[location]))
 
@@ -41,11 +47,11 @@ class KLD():
         if args.debug:
             log.basicConfig(level=log.DEBUG, filename='debug.log', filemode='w', format='%(message)s')
 
-    def compute_kld(self, data):
+    def compute_kld(self, locations, sequences):
 
         # computes paths that terminate at location, and also
         # the call sequences that terminate at location (domain)
-        def paths_ending_at(location, sequences):
+        def paths_ending_at(location):
             paths = []
             domain = []
             for sequence in sequences:
@@ -60,11 +66,9 @@ class KLD():
                             domain.append(os)
             return paths, domain
 
-        parser = SalentoJsonParser(data)
-        sequences = parser.as_sequences()
         kld_l = {}
-        for l in parser.get_call_locations():
-            paths, domain = paths_ending_at(l, sequences)
+        for l in locations:
+            paths, domain = paths_ending_at(l)
             kld_l[l] = self.kld(l, paths, domain)
         return kld_l
 

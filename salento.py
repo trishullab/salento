@@ -37,18 +37,25 @@ class SalentoJsonParser():
                 ret += ['END'] if start_end else []
         return ret
 
-    def get_call_locations(self):
+    def package_names(self):
+        return [package['name'] for package in self.json_data['packages']]
+
+    def get_call_locations(self, package_name=None):
         locations = []
         for package in self.json_data['packages']:
+            if package and not package['name'] == package_name:
+                continue
             for data_point in package['data']:
                 for event in data_point['sequence']:
                     if type_of(event) == 'call':
                         locations.append(event['location'])
         return set(locations)
 
-    def as_sequences(self):
+    def as_sequences(self, package_name=None):
         seqs = []
         for package in self.json_data['packages']:
+            if package and not package['name'] == package_name:
+                continue
             for data_point in package['data']:
                 seqs.append(data_point)
         return seqs
