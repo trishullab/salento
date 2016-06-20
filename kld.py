@@ -73,13 +73,13 @@ class KLD():
         return kld_l
 
     def kld(self, l, paths, domain):
-        prime = random.choice(self.primes)
 
         def norm(arr):
             return [float(i) / sum(arr) for i in arr]
 
         def qprob(sequence):
             sequence = to_model_alphabet(sequence, self.vocab) + [self.vocab['END']]
+            prime = random.choice(self.primes)
             pr = self.model.probability(prime, sequence)
             pr = [p[event] for p, event in zip(pr, sequence)]
             log.debug([self.chars[e] for e in sequence])
