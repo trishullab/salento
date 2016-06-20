@@ -59,7 +59,7 @@ class KLD():
                 for i, event in enumerate(sequence):
                     if type_of(event) == 'call' and event['location'] == location:
                         s = sequence[0: i+1] # also includes branches
-                        os = [e for e in s if type_of(e) == 'call']
+                        os = calls_in_sequence(s)
                         if not s in paths:
                             paths.append(s)
                         if not os in domain:

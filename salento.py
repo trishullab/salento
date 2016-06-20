@@ -10,12 +10,15 @@ def type_of(event):
 def calls_in_sequence(sequence):
     return [event for event in sequence if type_of(event) == 'call']
 
-def to_model_alphabet(sequence, vocab):
+def calls_as_tokens(sequence):
     s = []
-    call_events = [event for event in sequence if type_of(event) == 'call']
+    call_events = calls_in_sequence(sequence)
     for event in call_events:
-        s += [event['call']] + ['m' + str(i+1) + '_' + state for i, state in enumerate(event['states'])]
-    return list(map(vocab.get, s))
+        s += [event['call']] + [str(i) + '_' + str(state) for i, state in enumerate(event['states'])]
+    return s
+
+def to_model_alphabet(sequence, vocab):
+    return [vocab[token] for token in calls_as_tokens(sequence)]
 
 class SalentoJsonParser():
     def __init__(self, f):
@@ -29,11 +32,7 @@ class SalentoJsonParser():
         for package in self.json_data['packages']:
             for data_point in package['data']:
                 ret += ['START'] if start_end else []
-                for event in data_point['sequence']:
-                    if type_of(event) == 'call':
-                        ret += [event['call']]
-                        for i, state in enumerate(event['states']):
-                            ret += [str(i) + '_' + str(state)]
+                ret += calls_as_tokens(data_point['sequence'])
                 ret += ['END'] if start_end else []
         return ret
 
