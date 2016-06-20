@@ -44,11 +44,14 @@ def to_json_sequence(sequence):
     count = int(sequence.split()[0])
     jsequence = []
     for event in ' '.join(sequence.split()[1:]).split(';')[0:-1]:
-        call = event.split('"')[1]
-        s = re.split('\[|\]', event.split('"')[2])
-        states = ast.literal_eval('[' + s[1] + ']')
-        location = s[3]
-        jevent = {'call' : call, 'states' : states, 'location' : location}
+        if len(event.split('"')) == 1:
+            jevent = {'branches' : int(event)}
+        else:
+            call = event.split('"')[1]
+            s = re.split('\[|\]', event.split('"')[2])
+            states = ast.literal_eval('[' + s[1] + ']')
+            location = s[3]
+            jevent = {'call' : call, 'states' : states, 'location' : location}
         jsequence.append(jevent)
     return [{'sequence': jsequence}] * count
 

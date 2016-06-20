@@ -68,12 +68,17 @@ public class Event
 
     @Override
     public String toString() {
-        String s = Util.mySignature(sigma) + "[";
-        for (MonitorState ps : monitorStates)
-            s += ps.toString() + ",";
-        if (s.charAt(s.length() - 1) == ',')
-            s = s.substring(0, s.length() - 1);
-        s += "][" + location + "]";
+        String s;
+        if (numBranches != null)
+            s = numBranches.toString();
+        else {
+            s = Util.mySignature(sigma) + "[";
+            for (MonitorState ps : monitorStates)
+                s += ps.toString() + ",";
+            if (s.charAt(s.length() - 1) == ',')
+                s = s.substring(0, s.length() - 1);
+            s += "][" + location + "]";
+        }
         return s;
     }
 }
