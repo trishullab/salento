@@ -2,6 +2,7 @@ import json
 import argparse
 import re
 import ast
+import random
 
 def main():
     argparser = argparse.ArgumentParser()
@@ -19,6 +20,7 @@ def to_json(args):
     nseqs = 0
 
     def add_sequences_to_package():
+        random.shuffle(jsequences)
         package = { 'data' : jsequences, 'name' : name }
         if len(package['data']) > 0:
             packages.append(package)
