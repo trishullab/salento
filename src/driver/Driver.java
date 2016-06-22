@@ -60,6 +60,12 @@ public class Driver {
             driver.Options.unitGraph = arg;
             argsList.remove("-unit-graph");
         }
+        if (argsList.contains("-unique-paths")) {
+            String arg = argsList.remove(argsList.indexOf("-unique-paths")+1);
+            assert arg.equals("y") || arg.equals("n") : "invalid argument to -unique-paths";
+            driver.Options.uniquePaths = arg.equals("y");
+            argsList.remove("-unique-paths");
+        }
         if (argsList.contains("-obey-android-entry-points")) {
             String arg = argsList.remove(argsList.indexOf("-obey-android-entry-points")+1);
             assert arg.equals("y") || arg.equals("n") : "invalid argument to -obey-android-entry-points";

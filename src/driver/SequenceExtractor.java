@@ -271,9 +271,11 @@ public class SequenceExtractor extends BodyTransformer
     }
 
     private void handleTerminal(Path path, List<TypeStateObject> tos) throws SequenceExtractorException {
-        if (paths.contains(path))
-            return;
-        paths.add(path);
+        if (Options.uniquePaths) {
+            if (paths.contains(path))
+                return;
+            paths.add(path);
+        }
 
         numSequences += tos.size();
         for (TypeStateObject t : tos)

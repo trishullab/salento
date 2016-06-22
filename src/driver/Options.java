@@ -19,6 +19,9 @@ public final class Options
      * true by default */
     public static boolean validateSequences = true;
 
+    /** collect only sequences from unique paths */
+    public static boolean uniquePaths = false;
+
     /** print branch events */
     public static boolean printBranches = false;
 
