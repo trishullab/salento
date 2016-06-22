@@ -10,6 +10,8 @@ def main():
                        help='input file in old format')
     argparser.add_argument('--output_file', type=str, default=None, required=True,
                        help='output JSON file')
+    argparser.add_argument('--prefixes', action='store_true',
+                       help='output all prefixes of each sequence')
     args = argparser.parse_args()
     to_json(args)
 
@@ -33,14 +35,14 @@ def to_json(args):
                 jsequences = []
                 name = line[4:-5]
             else:
-                jsequences += to_json_sequence(line)
+                jsequences += to_json_sequence(line, args.prefixes)
     nseqs += add_sequences_to_package()
 
     with open(args.output_file, 'w') as fout:
         fout.write(json.dumps( { 'packages' : packages }, indent=2))
     print('Converted {0} packages, {1} sequences to JSON'.format(len(packages), nseqs))
 
-def to_json_sequence(sequence):
+def to_json_sequence(sequence, prefixes=False):
     count = int(sequence.split()[0])
     jsequence = []
     for event in ' '.join(sequence.split()[1:]).split(';')[0:-1]:
@@ -53,7 +55,11 @@ def to_json_sequence(sequence):
             location = s[3]
             jevent = {'call' : call, 'states' : states, 'location' : location}
         jsequence.append(jevent)
-    return [{'sequence': jsequence}] * count
+    jsequence.append({'call' : 'TERMINAL', 'states' : states, 'location' : 'TERMINAL'})
+    if prefixes:
+        return count * [{'sequence' : jsequence[:i+1]} for i in range(len(jsequence))]
+    else:
+        return count * [{'sequence': jsequence}]
 
 if __name__ == '__main__':
     main()
