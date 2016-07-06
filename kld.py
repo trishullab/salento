@@ -3,6 +3,7 @@ import numpy as np
 import random
 import os
 import logging as log
+import time
 from six.moves import cPickle
 from matplotlib import pyplot as plt
 from scipy.interpolate import spline
@@ -20,6 +21,9 @@ def main():
     argparser.add_argument('--debug', action='store_true',
                        help='enable printing debug log to debug.log')
     args = argparser.parse_args()
+    if args.debug:
+        log.basicConfig(level=log.DEBUG, filename='debug.log', filemode='w', format='%(message)s')
+    start = time.time()
     kl = KLD(args)
 
     with open(args.data_file) as data:
@@ -28,10 +32,12 @@ def main():
     for pack in parser.package_names():
         sequences = parser.as_sequences(pack)
         locations = parser.get_call_locations(pack)
+        log.debug('### ' + pack)
         kld = kl.compute_kld(locations, sequences)
         print('### ' + pack)
         for location in kld:
-            print('{:35s} : {:e}'.format(location, kld[location]))
+            print('  {:35s} : {:.2f}'.format(location, kld[location]))
+    print('Time taken: ' + str(int(time.time() - start)) + 's')
 
 class KLD():
     def __init__(self, args):
@@ -44,8 +50,6 @@ class KLD():
             self.primes = cPickle.load(f)
         self.model = Model(saved_args)
         self.model.model.load_weights(os.path.join(args.save_dir, 'weights.h5'))
-        if args.debug:
-            log.basicConfig(level=log.DEBUG, filename='debug.log', filemode='w', format='%(message)s')
 
     def compute_kld(self, locations, sequences):
 
