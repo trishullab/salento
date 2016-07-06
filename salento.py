@@ -42,7 +42,7 @@ class SalentoJsonParser():
     def get_call_locations(self, package_name=None):
         locations = []
         for package in self.json_data['packages']:
-            if package and not package['name'] == package_name:
+            if package_name and not package['name'] == package_name:
                 continue
             for data_point in package['data']:
                 for event in data_point['sequence']:
