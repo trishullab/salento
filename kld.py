@@ -14,8 +14,6 @@ def main():
                        help='directory where model is stored')
     argparser.add_argument('--data_file', type=str, required=True, default=None,
                        help='Salento\'s output file in JSON')
-    argparser.add_argument('--plot_dir', type=str, default=None,
-                       help='directory to save KLD plots in')
     argparser.add_argument('--debug', action='store_true',
                        help='enable printing debug log to debug.log')
     args = argparser.parse_args()
@@ -23,7 +21,6 @@ def main():
         log.basicConfig(level=log.DEBUG, filename='debug.log', filemode='w', format='%(message)s')
     start = time.time()
     random.seed(start)
-    print('Seed: ' + str(start))
     kl = KLD(args)
 
     with open(args.data_file) as data:
@@ -32,11 +29,13 @@ def main():
     for pack in parser.package_names():
         sequences = parser.as_sequences(pack)
         locations = parser.get_call_locations(pack)
-        log.debug('### ' + pack)
+        log.debug('\n### ' + pack)
         kld = kl.compute_kld(locations, sequences)
         print('### ' + pack)
         for location in locations:
             print('  {:35s} : {:.2f}'.format(location, kld[location]))
+
+    print('Seed: ' + str(start))
     print('Time taken: ' + str(int(time.time() - start)) + 's')
 
 class KLD():
@@ -83,6 +82,8 @@ class KLD():
             prime = random.choice(self.primes)
             pr = self.model.probability(prime, seq)
             pr = [p[event] for p, event in zip(pr, seq)]
+            log.debug([self.chars[e] for e in seq])
+            log.debug(pr)
             return np.prod(pr)
 
         # bias is half of the negative variance of the estimate. the variance is
@@ -102,6 +103,8 @@ class KLD():
             Q = qprob(seq)
             return np.log(P) - np.log(Q) - bias(seq, J_prime) if P > 0 else 0
 
+        log.debug('')
+        log.debug(l)
         I_prime = [(random.choice(seqs), sample(seqs, nsamples)) for i in range(niters_convergence)]
         K = [inner_sum(seq, J_prime) for seq, J_prime in I_prime]
         return sum(K) / np.count_nonzero(K) # discard those that resulted in 0
