@@ -22,6 +22,8 @@ def main():
     if args.debug:
         log.basicConfig(level=log.DEBUG, filename='debug.log', filemode='w', format='%(message)s')
     start = time.time()
+    random.seed(start)
+    print('Seed: ' + str(start))
     kl = KLD(args)
 
     with open(args.data_file) as data:
@@ -68,7 +70,7 @@ class KLD():
             kld_l[l] = self.kld(l, seqs)
         return kld_l
 
-    def kld(self, l, seqs):
+    def kld(self, l, seqs, nsamples=10, niters_convergence=10):
 
         def sample(s, n=1):
             samples = []
@@ -83,15 +85,24 @@ class KLD():
             pr = [p[event] for p, event in zip(pr, seq)]
             return np.prod(pr)
 
+        # bias is half of the negative variance of the estimate. the variance is
+        # itself estimated through bootstrap resampling.
         def bias(seq, J_prime):
-            return 0. # not computing bias, for now
+            values = []
+            for i in range(niters_convergence):
+                values.append(float(J_prime.count(seq)) / nsamples)
+                J_prime = sample(seqs, nsamples)
+            avg = float(sum(values)) / niters_convergence
+            var = [(value - avg) ** 2 for value in values]
+            var = sum(var) / (niters_convergence - 1)
+            return -var / 2.
 
         def inner_sum(seq, J_prime):
-            P = float(J_prime.count(seq)) / len(J_prime)
+            P = float(J_prime.count(seq)) / nsamples
             Q = qprob(seq)
             return np.log(P) - np.log(Q) - bias(seq, J_prime) if P > 0 else 0
 
-        I_prime = [(random.choice(seqs), sample(seqs, 10)) for i in range(10)]
+        I_prime = [(random.choice(seqs), sample(seqs, nsamples)) for i in range(niters_convergence)]
         K = [inner_sum(seq, J_prime) for seq, J_prime in I_prime]
         return sum(K) / np.count_nonzero(K) # discard those that resulted in 0
 
