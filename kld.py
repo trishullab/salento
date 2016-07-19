@@ -5,8 +5,6 @@ import os
 import logging as log
 import time
 from six.moves import cPickle
-from matplotlib import pyplot as plt
-from scipy.interpolate import spline
 from salento import SalentoJsonParser, type_of, to_model_alphabet, calls_in_sequence
 from model import Model
 
@@ -35,7 +33,7 @@ def main():
         log.debug('### ' + pack)
         kld = kl.compute_kld(locations, sequences)
         print('### ' + pack)
-        for location in kld:
+        for location in locations:
             print('  {:35s} : {:.2f}'.format(location, kld[location]))
     print('Time taken: ' + str(int(time.time() - start)) + 's')
 
@@ -53,78 +51,49 @@ class KLD():
 
     def compute_kld(self, locations, sequences):
 
-        # computes paths that terminate at location, and also
-        # the call sequences that terminate at location (domain)
-        def paths_ending_at(location):
-            paths = []
-            domain = []
+        # computes the sequences ending at a location
+        def sequences_ending_at(location):
+            seqs = []
             for sequence in sequences:
                 sequence = sequence['sequence']
                 for i, event in enumerate(sequence):
                     if type_of(event) == 'call' and event['location'] == location:
-                        s = sequence[0: i+1] # also includes branches
-                        os = calls_in_sequence(s)
-                        if not s in paths:
-                            paths.append(s)
-                        if not os in domain:
-                            domain.append(os)
-            return paths, domain
+                        s = calls_in_sequence(sequence[0: i+1])
+                        seqs.append(s)
+            return seqs
 
         kld_l = {}
         for l in locations:
-            paths, domain = paths_ending_at(l)
-            kld_l[l] = self.kld(l, paths, domain)
+            seqs = sequences_ending_at(l)
+            kld_l[l] = self.kld(l, seqs)
         return kld_l
 
-    def kld(self, l, paths, domain):
+    def kld(self, l, seqs):
 
-        def norm(arr):
-            return [float(i) / sum(arr) for i in arr]
+        def sample(s, n=1):
+            samples = []
+            for i in range(n):
+                samples.append(random.choice(s))
+            return samples
 
-        def qprob(sequence):
-            sequence = to_model_alphabet(sequence, self.vocab) + [self.vocab['END']]
+        def qprob(seq):
+            seq = to_model_alphabet(seq, self.vocab) + [self.vocab['END']]
             prime = random.choice(self.primes)
-            pr = self.model.probability(prime, sequence)
-            pr = [p[event] for p, event in zip(pr, sequence)]
-            log.debug([self.chars[e] for e in sequence])
-            log.debug(pr)
+            pr = self.model.probability(prime, seq)
+            pr = [p[event] for p, event in zip(pr, seq)]
             return np.prod(pr)
 
-        def pprob(sequence):
-            def pprob_path(path):
-                pr = [1./event['branches'] for event in path if type_of(event) == 'branches']
-                return np.prod(pr)
-            pr = [pprob_path(path) for path in paths if calls_in_sequence(path) == sequence]
-            return np.sum(pr)
+        def bias(seq, J_prime):
+            return 0. # not computing bias, for now
 
-        log.debug('')
-        log.debug(l)
-        P = norm([pprob(sequence) for sequence in domain])
-        Q = [qprob(sequence) for sequence in domain]
-        K = list(map(lambda p, q: p * np.log(p / q), P, Q))
-        log.debug('P: ' + ' '.join('{:.2f}'.format(e) for e in P))
-        log.debug('Q: ' + ' '.join('{:.2e}'.format(e) for e in Q))
-        log.debug('K: ' + ' '.join('{:.2f}'.format(e) for e in K))
-        log.debug('')
-        if self.args.plot_dir is not None:
-            self.save_plot(l, P, Q, K)
-        return sum(K)
+        def inner_sum(seq, J_prime):
+            P = float(J_prime.count(seq)) / len(J_prime)
+            Q = qprob(seq)
+            return np.log(P) - np.log(Q) - bias(seq, J_prime) if P > 0 else 0
 
-    def save_plot(self, location, P, Q, K):
-        data = sorted(zip(P, Q, K), key=lambda x: x[1])
-        x = np.array(range(0, len(data)))
-        line1, = plt.plot(x, P, label='P', c='b', linewidth=2)
-        line2, = plt.plot(x, Q, label='Q', c='g', linewidth=2)
-        line3, = plt.plot(x, K, label='KLD', c='r', linewidth=2)
-        plt.ylabel('Probability')
-        plt.xlabel('Sequence')
-        plt.grid(alpha=0.8)
-        xmin, xmax, ymin, ymax = plt.axis()
-        plt.axis((xmin, xmax, ymin, 1.0))
-        plt.legend(handles=[line1, line2, line3])
-        plt.title(location)
-        plt.savefig(os.path.join(self.args.plot_dir, location + '.pdf'))
-        plt.clf()
+        I_prime = [(random.choice(seqs), sample(seqs, 10)) for i in range(10)]
+        K = [inner_sum(seq, J_prime) for seq, J_prime in I_prime]
+        return sum(K) / np.count_nonzero(K) # discard those that resulted in 0
 
 if __name__ == '__main__':
     main()
