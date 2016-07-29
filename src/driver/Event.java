@@ -77,7 +77,7 @@ public class Event
                 s += ps.toString() + ",";
             if (s.charAt(s.length() - 1) == ',')
                 s = s.substring(0, s.length() - 1);
-            s += "][" + location + "]";
+            s += "][" + (location != null? location : "") + "]";
         }
         return s;
     }
