@@ -1,13 +1,8 @@
-/---------------------------------------------------\
-| Driver based on soot for extracting API sequences |
-| from Java bytecode (Android).                     |
-\---------------------------------------------------/
+# salento-driver-android #
+Driver based on soot for extracting API sequences from Java bytecode and Android.
 
-Author: Vijay Murali
-
-
-NOTE: The soot version distributed (2.5.0) has been compiled with
-JDK "1.7.0_80" and is compatible with JRE (build 1.7.0_80-b15).
+# Compilation and setup #
+NOTE: The soot version distributed (2.5.0) has been compiled with JDK "1.7.0_80" and is compatible with JRE (build 1.7.0_80-b15).
 
 1. Setup two environment variables as follows
     export SALENTO_ANDROID_HOME=/path/to/salento-driver-android
