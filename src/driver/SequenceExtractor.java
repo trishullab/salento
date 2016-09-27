@@ -133,9 +133,6 @@ public class SequenceExtractor extends BodyTransformer
     public void end() {
         if (Options.printJSON)
             outfile.println(gson.toJson(this));
-        else
-            for (History sequence : data)
-                outfile.println(sequence);
     }
 
     @Override
@@ -282,7 +279,10 @@ public class SequenceExtractor extends BodyTransformer
         numSequences += tos.size();
         for (TypeStateObject t : tos)
             if (t.hasValidHistory())
-                data.add(t.getHistory());
+                if (Options.printJSON) // save to print later
+                    data.add(t.getHistory());
+                else
+                    outfile.println(t.getHistory());
     }
 
     /* handles a relevant (API call) invocation and if successful, returns the successor statement
