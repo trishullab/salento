@@ -21,8 +21,10 @@ public class LocationInfo
         this.fileTag = (SourceFileTag) method.getDeclaringClass().getTag("SourceFileTag");
         this.lnTag = (LineNumberTag) (stmt.getTag("LineNumberTag"));
 
-        this.fileName = getFileName();
-        this.lineNum = getLineNumber();
+        if (Options.printLocation) {
+            this.fileName = getFileName();
+            this.lineNum = getLineNumber();
+        }
     }
 
     public String getFileName() {
