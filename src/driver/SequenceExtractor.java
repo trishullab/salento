@@ -140,8 +140,10 @@ public class SequenceExtractor extends BodyTransformer
 
     @Override
     protected void internalTransform(Body body, String phaseName, Map options) {
-        if (! Util.isRelevantApp())
-            return;
+        if (! Util.isRelevantApp()) {
+            System.out.println("Irrelevant app");
+            System.exit(1);
+        }
 
         SootMethod method = body.getMethod();
 
