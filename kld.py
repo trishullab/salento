@@ -1,54 +1,61 @@
 import argparse
+import tensorflow as tf
 import numpy as np
 import random
 import os
 import logging as log
 import time
 from six.moves import cPickle
-from salento import SalentoJsonParser, type_of, to_model_alphabet, calls_in_sequence
+from salento import SalentoJsonParser, type_of, to_model_alphabet, calls_in_sequence, START, END
 from model import Model
 
 def main():
     argparser = argparse.ArgumentParser()
+    argparser.add_argument('data_file', type=str, nargs=1,
+                       help='Salento\'s output file in JSON')
     argparser.add_argument('--save_dir', type=str, default='save',
                        help='directory where model is stored')
-    argparser.add_argument('--data_file', type=str, required=True, default=None,
-                       help='Salento\'s output file in JSON')
     argparser.add_argument('--debug', action='store_true',
                        help='enable printing debug log to debug.log')
     args = argparser.parse_args()
     if args.debug:
         log.basicConfig(level=log.DEBUG, filename='debug.log', filemode='w', format='%(message)s')
-    start = time.time()
+    start = int(time.time())
     random.seed(start)
-    kl = KLD(args)
 
-    with open(args.data_file) as data:
-        parser = SalentoJsonParser(data)
-    
-    for pack in parser.package_names():
-        sequences = parser.as_sequences(pack)
-        locations = parser.get_call_locations(pack)
-        log.debug('\n### ' + pack)
-        kld = kl.compute_kld(locations, sequences)
-        print('### ' + pack)
-        for location in locations:
-            print('  {:35s} : {:.2f}'.format(location, kld[location]))
+    with tf.Session() as sess:
+        kl = KLD(args, sess)
+
+        with open(args.data_file[0]) as data:
+            parser = SalentoJsonParser(data)
+        
+        for pack in parser.package_names():
+            sequences = parser.as_sequences(pack)
+            locations = parser.get_call_locations(pack)
+            log.debug('\n### ' + pack)
+            kld = kl.compute_kld(locations, sequences)
+            print('### ' + pack)
+            for location in locations:
+                print('  {:35s} : {:.2f}'.format(location, kld[location]))
 
     print('Seed: ' + str(start))
     print('Time taken: ' + str(int(time.time() - start)) + 's')
 
 class KLD():
-    def __init__(self, args):
+    def __init__(self, args, sess):
         self.args = args
+        self.sess = sess
         with open(os.path.join(args.save_dir, 'config.pkl'), 'rb') as f:
             saved_args = cPickle.load(f)
         with open(os.path.join(args.save_dir, 'chars_vocab.pkl'), 'rb') as f:
             self.chars, self.vocab = cPickle.load(f)
-        with open(os.path.join(args.save_dir, 'primes.pkl'), 'rb') as f:
-            self.primes = cPickle.load(f)
-        self.model = Model(saved_args)
-        self.model.model.load_weights(os.path.join(args.save_dir, 'weights.h5'))
+
+        self.model = Model(saved_args, True)
+        tf.initialize_all_variables().run()
+        saver = tf.train.Saver(tf.all_variables())
+        ckpt = tf.train.get_checkpoint_state(args.save_dir)
+        if ckpt and ckpt.model_checkpoint_path:
+            saver.restore(self.sess, ckpt.model_checkpoint_path)
 
     def compute_kld(self, locations, sequences):
 
@@ -78,9 +85,9 @@ class KLD():
             return samples
 
         def qprob(seq):
-            seq = to_model_alphabet(seq, self.vocab) + [self.vocab['END']]
-            prime = random.choice(self.primes)
-            pr = self.model.probability(prime, seq)
+            seq = [self.vocab[START]] + to_model_alphabet(seq, self.vocab) + [self.vocab[END]]
+            pr = self.model.probability(self.sess, seq)
+            pr, seq = pr[:-1], seq[1:] # prob distribution is over the next symbol, first symbol is prime (START)
             pr = [p[event] for p, event in zip(pr, seq)]
             log.debug([self.chars[e] for e in seq])
             log.debug(pr)

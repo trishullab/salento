@@ -20,6 +20,7 @@ def calls_as_tokens(sequence):
 def to_model_alphabet(sequence, vocab):
     return [vocab[token] for token in calls_as_tokens(sequence)]
 
+START, END = 'START', 'END'
 class SalentoJsonParser():
     def __init__(self, f):
         self.json_data = json.loads(f.read())
@@ -31,9 +32,9 @@ class SalentoJsonParser():
         ret = []
         for package in self.json_data['packages']:
             for data_point in package['data']:
-                ret += ['START'] if start_end else []
+                ret += [START] if start_end else []
                 ret += calls_as_tokens(data_point['sequence'])
-                ret += ['END'] if start_end else []
+                ret += [END] if start_end else []
         return ret
 
     def package_names(self):

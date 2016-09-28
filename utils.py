@@ -1,79 +1,55 @@
+import codecs
 import os
 import collections
-import random
 from six.moves import cPickle
 import numpy as np
+
 from salento import SalentoJsonParser
 
-class TextLoader():
-    def __init__(self, data_dir, batch_size, seq_length, step, salento=False):
-        self.data_dir = data_dir
+class DataLoader():
+    def __init__(self, input_file, batch_size, seq_length):
         self.batch_size = batch_size
         self.seq_length = seq_length
-        self.step = step
-        self.salento = salento
 
-        input_file = os.path.join(data_dir, "input.txt")
-        vocab_file = os.path.join(data_dir, "vocab.pkl")
-        tensor_file = os.path.join(data_dir, "data.npy")
-
-        if not (os.path.exists(vocab_file) and os.path.exists(tensor_file)):
-            print("reading text file")
-            self.preprocess(input_file, vocab_file, tensor_file)
-        else:
-            print("loading preprocessed files")
-            self.load_preprocessed(vocab_file, tensor_file)
+        print("reading text file")
+        self.preprocess(input_file)
         self.create_batches()
+        self.reset_batch_pointer()
 
-    def preprocess(self, input_file, vocab_file, tensor_file):
+    def preprocess(self, input_file):
         with open(input_file, "r") as f:
-            data = f.read() if not self.salento else SalentoJsonParser(f).as_tokens(start_end=True)
+            data = SalentoJsonParser(f).as_tokens(start_end=True)
         counter = collections.Counter(data)
         count_pairs = sorted(counter.items(), key=lambda x: -x[1])
         self.chars, _ = zip(*count_pairs)
         self.vocab_size = len(self.chars)
         self.vocab = dict(zip(self.chars, range(len(self.chars))))
-        with open(vocab_file, 'wb') as f:
-            cPickle.dump(self.chars, f)
         self.tensor = np.array(list(map(self.vocab.get, data)))
-        np.save(tensor_file, self.tensor)
-
-    def load_preprocessed(self, vocab_file, tensor_file):
-        with open(vocab_file, 'rb') as f:
-            self.chars = cPickle.load(f)
-        self.vocab_size = len(self.chars)
-        self.vocab = dict(zip(self.chars, range(len(self.chars))))
-        self.tensor = np.load(tensor_file)
 
     def create_batches(self):
         self.num_batches = int(self.tensor.size / (self.batch_size *
                                                    self.seq_length))
 
-        # When the data (tesor) is too small, let's give them a better error message
+        # When the data (tensor) is too small, let's give them a better error message
         if self.num_batches==0:
             assert False, "Not enough data. Make seq_length and batch_size small."
 
         self.tensor = self.tensor[:self.num_batches * self.batch_size * self.seq_length]
-        sentences = []
-        next_sentences = []
-        for i in range(0, len(self.tensor) - self.seq_length, self.step):
-            sentences.append(self.tensor[i: i + self.seq_length])
-            next_sentences.append(self.tensor[i + 1: i + 1 + self.seq_length])
-        self.primes = list(map(np.ndarray.tolist, self.sample_primes(sentences)))
-        print('nb sequences:', len(sentences))
-        print('vocabulary size:', self.vocab_size)
-        
-        print('Vectorization...')
-        self.xdata = np.zeros((len(sentences), self.seq_length, self.vocab_size), dtype=np.bool)
-        self.ydata = np.zeros((len(next_sentences), self.seq_length, self.vocab_size), dtype=np.bool)
-        for i, sentence in enumerate(sentences):
-            for t, char in enumerate(sentence):
-                self.xdata[i, t, char] = 1
-        for i, next_sentence in enumerate(next_sentences):
-            for t, char in enumerate(next_sentence):
-                self.ydata[i, t, char] = 1
+        xdata = self.tensor
+        ydata = np.copy(self.tensor)
+        ydata[:-1] = xdata[1:]
+        ydata[-1] = xdata[0]
+        self.x_batches = np.split(xdata.reshape(self.batch_size, -1), self.num_batches, 1)
+        self.y_batches = np.split(ydata.reshape(self.batch_size, -1), self.num_batches, 1)
 
-    def sample_primes(self, sentences):
-        if self.salento: # get sentences ending in 'START'
-            sentences = [sentence for sentence in sentences if sentence[-1] == self.vocab['START']]
-        return random.sample(sentences, 10)
+
+    def next_batch(self):
+        x, y = [], self.y_batches[self.pointer]
+        for i in range(self.seq_length):
+            x.append(np.array([self.x_batches[self.pointer][batch][i] for batch in  
+                range(self.batch_size)], dtype=np.int32))
+        self.pointer += 1
+        return x, y
+
+    def reset_batch_pointer(self):
+        self.pointer = 0

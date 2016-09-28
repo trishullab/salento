@@ -1,13 +1,16 @@
-# char-rnn-keras
-Multi-layer LSTMs for character-level language models using Keras.
+# salento-nn
+Multi-layer LSTMs for symbol-level language model using Tensorflow.
+(inspired from [char-rnn-tensorflow](https://github.com/sherjilozair/char-rnn-tensorflow))
 
-Inspired from [char-rnn-tensorflow](https://github.com/sherjilozair/char-rnn-tensorflow)
+Kullback-Leibler (KL) Divergence computation for a set of program locations.
 
 # Requirements
-- [Keras](http://keras.io)
-- h5py for Python, to save models
+- Python3 (Tested with 3.5.1)
+- [Tensorflow](http://www.tensorflow.org)
 
 # Basic Usage
-To train with default parameters on the tinyshakespeare corpus, run `python train.py`.
+To train with default parameters on a training data file DATA-training.json, run `python3 train.py DATA-training.json`.
 
-To sample from a checkpointed model, `python sample.py`.
+To predict the next symbol using a saved model, `python3 predict.py`.
+
+To compute KL-Divergence values for a testing data set DATA-testing.json, `python3 kld.py DATA-testing.json`
