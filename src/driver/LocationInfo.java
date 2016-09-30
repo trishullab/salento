@@ -2,6 +2,9 @@
 
 package driver;
 
+import java.util.List;
+import java.util.ArrayList;
+
 import soot.*;
 import soot.jimple.Stmt;
 
@@ -17,13 +20,24 @@ public class LocationInfo
     private String fileName;
     private Integer lineNum;
 
+    /* Static list of statements that serves as a map from stmt -> index */
+    private static List<Stmt> stmtLocationMap = new ArrayList<Stmt>();
+
+    private Stmt stmt;
+
     public LocationInfo(Stmt stmt, SootMethod method) {
+        this.stmt = stmt;
         this.fileTag = (SourceFileTag) method.getDeclaringClass().getTag("SourceFileTag");
         this.lnTag = (LineNumberTag) (stmt.getTag("LineNumberTag"));
 
         if (Options.printLocation) {
-            this.fileName = getFileName();
-            this.lineNum = getLineNumber();
+            if (fileTag != null && lnTag != null) {
+                this.fileName = getFileName();
+                this.lineNum = getLineNumber();
+            }
+            else
+                if (! stmtLocationMap.contains(stmt))
+                    stmtLocationMap.add(stmt);
         }
     }
 
@@ -37,9 +51,10 @@ public class LocationInfo
 
     @Override
     public String toString() {
-        if (!Options.printLocation || fileTag == null || lnTag == null)
+        if (!Options.printLocation)
             return "";
-        else
+        else if (fileTag != null && lnTag != null)
             return getFileName() + "@" + getLineNumber();
+        else return "LOC" + stmtLocationMap.indexOf(stmt);
     }
 }
