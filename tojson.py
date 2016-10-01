@@ -26,6 +26,7 @@ def to_json(args):
         package = { 'data' : jsequences, 'name' : name }
         if len(package['data']) > 0:
             packages.append(package)
+            print('{:5d} packages done'.format(len(packages)), end='\r')
         return len(jsequences)
 
     with open(args.input_file) as fin:
@@ -39,8 +40,8 @@ def to_json(args):
     nseqs += add_sequences_to_package()
 
     with open(args.output_file, 'w') as fout:
-        fout.write(json.dumps( { 'packages' : packages }, indent=2))
-    print('Converted {0} packages, {1} sequences to JSON'.format(len(packages), nseqs))
+        json.dump( { 'packages' : packages }, fp=fout, indent=2)
+    print('\nConverted {0} packages, {1} sequences to JSON'.format(len(packages), nseqs))
 
 def to_json_sequence(sequence, prefixes=False):
     jsequence = []
