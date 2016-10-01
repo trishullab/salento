@@ -33,7 +33,7 @@ def to_json(args):
             if line[0] == '#':
                 nseqs += add_sequences_to_package()
                 jsequences = []
-                name = line[4:-5]
+                name = line[4:-1]
             else:
                 jsequences += to_json_sequence(line, args.prefixes)
     nseqs += add_sequences_to_package()
@@ -43,9 +43,8 @@ def to_json(args):
     print('Converted {0} packages, {1} sequences to JSON'.format(len(packages), nseqs))
 
 def to_json_sequence(sequence, prefixes=False):
-    count = int(sequence.split()[0])
     jsequence = []
-    for event in ' '.join(sequence.split()[1:]).split(';')[0:-1]:
+    for event in sequence.split(';')[0:-1]:
         if len(event.split('"')) == 1:
             jevent = {'branches' : int(event)}
         else:
@@ -57,9 +56,9 @@ def to_json_sequence(sequence, prefixes=False):
         jsequence.append(jevent)
     jsequence.append({'call' : 'TERMINAL', 'states' : states, 'location' : 'TERMINAL'})
     if prefixes:
-        return count * [{'sequence' : jsequence[:i+1]} for i in range(len(jsequence))]
+        return [{'sequence' : jsequence[:i+1]} for i in range(len(jsequence))]
     else:
-        return count * [{'sequence': jsequence}]
+        return [{'sequence': jsequence}]
 
 if __name__ == '__main__':
     main()
