@@ -24,18 +24,23 @@ START, END = 'START', 'END'
 class SalentoJsonParser():
     def __init__(self, f):
         self.json_data = json.loads(f.read())
-        self._packages = len(self.json_data['packages'])
-        self._sequences = sum([len(p['data']) for p in self.json_data['packages']])
-        print('Read {0} packages, {1} sequences'.format(self._packages, self._sequences))
+        _packages = len(self.json_data['packages'])
+        _sequences = sum([len(p['data']) for p in self.json_data['packages']])
+        print('Read {0} packages, {1} sequences'.format(_packages, _sequences))
 
     def as_tokens(self, start_end=False):
         ret = []
+        topics = []
         for package in self.json_data['packages']:
+            seq = []
             for data_point in package['data']:
-                ret += [START] if start_end else []
-                ret += calls_as_tokens(data_point['sequence'])
-                ret += [END] if start_end else []
-        return ret
+                seq += [START] if start_end else []
+                seq += calls_as_tokens(data_point['sequence'])
+                seq += [END] if start_end else []
+            ret += seq
+            for i in range(len(seq)):
+                topics.append(package['topic'])
+        return ret, topics
 
     def package_names(self):
         return [package['name'] for package in self.json_data['packages']]

@@ -18,8 +18,6 @@ def main():
                        help='directory to store checkpointed models')
     parser.add_argument('--rnn_size', type=int, default=128,
                        help='size of RNN hidden state')
-    parser.add_argument('--num_layers', type=int, default=2,
-                       help='number of layers in the RNN')
     parser.add_argument('--batch_size', type=int, default=50,
                        help='minibatch size')
     parser.add_argument('--seq_length', type=int, default=10,
@@ -43,6 +41,7 @@ def main():
 def train(args):
     data_loader = DataLoader(args.input_file[0], args.batch_size, args.seq_length)
     args.vocab_size = data_loader.vocab_size
+    args.ntopics = data_loader.ntopics
     
     # check compatibility if training is continued from previously saved model
     if args.init_from is not None:
@@ -66,10 +65,11 @@ def train(args):
             state = model.initial_state.eval()
             for b in range(data_loader.num_batches):
                 start = time.time()
-                x, y = data_loader.next_batch()
+                x, t, y = data_loader.next_batch()
                 feed = {model.targets: y, model.initial_state: state}
                 for j in range(args.seq_length):
                     feed[model.inputs[j].name] = x[j]
+                    feed[model.topics[j].name] = t[j]
                 train_loss, state, _ = sess.run([model.cost, model.final_state, model.train_op], feed)
                 end = time.time()
                 print("{}/{} (epoch {}), train_loss = {:.3f}, time/batch = {:.3f}" \
@@ -93,7 +93,7 @@ def check_compat(args, data_loader):
     # open old config and check if models are compatible
     with open(os.path.join(args.init_from, 'config.pkl')) as f:
         saved_model_args = cPickle.load(f)
-    need_be_same=["model","rnn_size","num_layers","seq_length"]
+    need_be_same=["model","rnn_size","seq_length"]
     for checkme in need_be_same:
         assert vars(saved_model_args)[checkme]==vars(args)[checkme],"Command line argument and saved model disagree on '%s' "%checkme
     

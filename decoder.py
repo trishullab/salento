@@ -22,7 +22,7 @@ def _extract_argmax_and_embed(embedding, output_projection=None,
   return loop_function
 
 
-def rnn_decoder(decoder_inputs, initial_state, cell, loop_function=None,
+def rnn_decoder(decoder_inputs, topics, initial_state, cell, loop_function=None,
                 scope=None):
   with variable_scope.variable_scope(scope or "rnn_decoder"):
     state = initial_state
@@ -34,7 +34,7 @@ def rnn_decoder(decoder_inputs, initial_state, cell, loop_function=None,
           inp = loop_function(prev, i)
       if i > 0:
         variable_scope.get_variable_scope().reuse_variables()
-      output, state = cell(inp, state)
+      output, state = cell(inp, topics[i], state)
       outputs.append(output)
       if loop_function is not None:
         prev = output
@@ -42,6 +42,7 @@ def rnn_decoder(decoder_inputs, initial_state, cell, loop_function=None,
 
 
 def embedding_rnn_decoder(decoder_inputs,
+                          topics,
                           initial_state,
                           cell,
                           num_symbols,
@@ -64,5 +65,5 @@ def embedding_rnn_decoder(decoder_inputs,
         update_embedding_for_previous) if feed_previous else None
     emb_inp = (
         embedding_ops.embedding_lookup(embedding, i) for i in decoder_inputs)
-    return rnn_decoder(emb_inp, initial_state, cell,
+    return rnn_decoder(emb_inp, topics, initial_state, cell,
                        loop_function=loop_function)
