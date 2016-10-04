@@ -39,13 +39,14 @@ class Model():
         if not infer:
             print('Model parameters: {}'.format(np.sum(var_params)))
 
-    def probability(self, sess, sample, vocab=None): # if vocab is None we assume it has already been applied
+    def probability(self, sess, sample, topic, vocab=None): # if vocab is None we assume it has already been applied
         prob = []
         state = self.cell.zero_state(1, tf.float32).eval()
+        t = np.array(np.reshape(topic, (1, -1)), dtype=np.float)
         for char in sample:
             x = np.zeros((1,), dtype=np.int32)
             x[0] = vocab[char] if vocab is not None else char
-            feed = {self.initial_state: state, self.inputs[0].name: x}
+            feed = {self.initial_state: state, self.inputs[0].name: x, self.topics[0].name: t}
             [p, state] = sess.run([self.probs, self.final_state], feed)
             prob.append(p[0])
         return prob
