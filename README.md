@@ -1,7 +1,7 @@
 # salento-nn
 Latent Dirichlet Allocation (LDA) over a training dataset of traces generated from [driver](https://bitbucket.org/vijayaraghavan-murali/salento-driver-android).
 
-Multi-layer LSTMs for symbol-level language model using Tensorflow.
+Recurrent neural networks (RNN) for symbol-level language model using Tensorflow.
 (inspired from [char-rnn-tensorflow](https://github.com/sherjilozair/char-rnn-tensorflow))
 
 Kullback-Leibler (KL) Divergence computation for a set of program locations.
