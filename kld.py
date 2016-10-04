@@ -5,7 +5,7 @@ import random
 import os
 import logging as log
 import time
-from six.moves import cPickle
+import pickle
 from salento import SalentoJsonParser, type_of, to_model_alphabet, calls_in_sequence, START, END
 from model import Model
 
@@ -46,9 +46,9 @@ class KLD():
         self.args = args
         self.sess = sess
         with open(os.path.join(args.save_dir, 'config.pkl'), 'rb') as f:
-            saved_args = cPickle.load(f)
+            saved_args = pickle.load(f)
         with open(os.path.join(args.save_dir, 'chars_vocab.pkl'), 'rb') as f:
-            self.chars, self.vocab = cPickle.load(f)
+            self.chars, self.vocab = pickle.load(f)
 
         self.model = Model(saved_args, True)
         tf.initialize_all_variables().run()

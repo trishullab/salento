@@ -3,7 +3,7 @@ import tensorflow as tf
 import argparse
 import os
 import ast
-from six.moves import cPickle
+import pickle
 
 from model import Model
 from salento import START
@@ -24,9 +24,9 @@ def main():
 
 def predict(args):
     with open(os.path.join(args.save_dir, 'config.pkl'), 'rb') as f:
-        saved_args = cPickle.load(f)
+        saved_args = pickle.load(f)
     with open(os.path.join(args.save_dir, 'chars_vocab.pkl'), 'rb') as f:
-        chars, vocab = cPickle.load(f)
+        chars, vocab = pickle.load(f)
     model = Model(saved_args, True)
     topic = ast.literal_eval(args.topic)
     with tf.Session() as sess:

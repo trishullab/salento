@@ -19,9 +19,7 @@ class DataLoader():
     def preprocess(self, input_file):
         with open(input_file, "r") as f:
             data, topics = SalentoJsonParser(f).as_tokens(start_end=True)
-        counter = collections.Counter(data)
-        count_pairs = sorted(counter.items(), key=lambda x: -x[1])
-        self.chars, _ = zip(*count_pairs)
+        self.chars = sorted(set(data))
         self.vocab_size = len(self.chars)
         self.vocab = dict(zip(self.chars, range(len(self.chars))))
         self.tensor = np.array(list(map(self.vocab.get, data)))
