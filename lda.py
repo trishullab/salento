@@ -22,17 +22,13 @@ def main():
                        help='initial alpha value')
     argparser.add_argument('--top_words', type=int, default=5,
                        help='top-k words to print from each topic')
-    argparser.add_argument('--seed', type=int, default=None,
-                       help='seed for pseudo-randomness')
     args = argparser.parse_args()
-    seed = int(time()) if args.seed is None else args.seed
     with open(args.input_file, 'r') as fin:
         data, js = get_data(fin)
 
     model = LDA(args)
     model.train(data)
     model.print_top_words(args.top_words)
-    print('seed: {:d}'.format(seed))
     print('\nOK with the model (y/n)? ', end='')
     ok = sys.stdin.readline()
 
@@ -42,7 +38,7 @@ def main():
 
         dist = model.infer(data)
         with open(args.output_file, 'w') as fout:
-            write_dist(fout, js, dist, seed)
+            write_dist(fout, js, dist)
 
 def get_data(fin):
     print('Reading data file...')
@@ -57,12 +53,11 @@ def get_data(fin):
     print()
     return data, js
 
-def write_dist(fout, js, dist, seed):
+def write_dist(fout, js, dist):
     assert len(js['packages']) == len(dist)
     print('Writing to output file...')
     for (package, dist) in zip(js['packages'], dist):
         package['topic'] = list(dist)
-    js['lda_seed'] = seed
     json.dump(js, fp=fout, indent=2)
 
 class LDA():
@@ -72,7 +67,7 @@ class LDA():
             self.model, self.tf_vectorizer = pickle.load(from_file)
         else:
             self.tf_vectorizer = CountVectorizer(lowercase=False, token_pattern=u'[^;]+;')
-            self.model = LatentDirichletAllocation(args.ntopics, doc_topic_prior=args.alpha, random_state=args.seed,
+            self.model = LatentDirichletAllocation(args.ntopics, doc_topic_prior=args.alpha,
                     learning_method='batch', max_iter=100, verbose=1, evaluate_every=1, max_doc_update_iter=100)
 
     def print_top_words(self, top_words):
