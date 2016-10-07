@@ -2,6 +2,7 @@ import tensorflow as tf
 from tensorflow.python.ops import rnn_cell
 from tensorflow.python.ops import seq2seq
 
+from utils import weighted_pick
 from cells import TopicRNNCell, TopicLSTMCell
 import decoder
 import numpy as np
@@ -52,12 +53,6 @@ class Model():
         return prob
 
     def predict(self, sess, prime, topic, chars, vocab):
-
-        def weighted_pick(weights):
-            t = np.cumsum(weights)
-            s = np.sum(weights)
-            return(int(np.searchsorted(t, np.random.rand(1)*s)))
-
         state = self.cell.zero_state(1, tf.float32).eval()
         t = np.array(np.reshape(topic, (1, -1)), dtype=np.float)
         for char in prime:

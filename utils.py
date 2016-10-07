@@ -6,6 +6,11 @@ import numpy as np
 
 from salento import SalentoJsonParser
 
+def weighted_pick(weights):
+    t = np.cumsum(weights)
+    s = np.sum(weights)
+    return int(np.searchsorted(t, np.random.rand(1)*s))
+
 class DataLoader():
     def __init__(self, input_file, batch_size, seq_length):
         self.batch_size = batch_size
