@@ -29,45 +29,55 @@ def main():
                        help='number of Gibbs sampling iterations')
     argparser.add_argument('--gibbs_random_init', action='store_true',
                        help='randomly initialize Gibbs chain instead of from trained model')
+    argparser.add_argument('--location_sensitive', action='store_true',
+                       help='document is location-sensitive set of calls (default False)')
     argparser.add_argument('--top_words', type=int, default=5,
                        help='top-k words to print from each topic')
     args = argparser.parse_args()
+    print('Reading data file...')
     with open(args.input_file, 'r') as fin:
-        data, js = get_data(fin)
+        data, js = get_data(fin, args.location_sensitive)
 
-    model = LDA(args)
-    model.train(data)
-    model.print_top_words(args.top_words)
-    print('\nOK with the model (y/n)? ', end='')
-    ok = sys.stdin.readline()
+    ok = 'r'
+    while ok == 'r':
+        model = LDA(args)
+        model.train(data)
+        top_words = model.top_words(args.top_words)
+        for i, words in enumerate(top_words):
+            print('Top words in Topic#{:d}\n'.format(i) + '\n'.join(words) + '\n')
+        print('\nOK with the model (y(es)/n(o)/r(edo))? ', end='')
+        ok = sys.stdin.readline().rstrip('\n')
 
-    if ok[0] == 'y':
+    if ok == 'y':
+        print('Saving model to {:s}'.format(os.path.join(args.save_dir, 'lda.pkl')))
         with open(os.path.join(args.save_dir, 'lda.pkl'), 'wb') as fmodel:
             pickle.dump((model.model, model.tf_vectorizer), fmodel)
 
+        print('Running inference (Gibbs sampling) on given data...')
         dist = model.infer(data, args.num_gibbs_samples, args.num_gibbs_iters, args.gibbs_random_init)
+        print('Writing to output file...')
         with open(args.output_file, 'w') as fout:
-            write_dist(fout, js, dist)
+            write_data(fout, js, dist, args, top_words)
 
-def get_data(fin):
-    print('Reading data file...')
+def get_data(fin, location_sensitive=False):
     js = json.loads(fin.read())
     data = []
     npackages = len(js['packages'])
 
     for i, package in enumerate(js['packages']):
-        bow = set([(event['call'], event['location'])
+        bow = set([(event['call'], event['location'] if location_sensitive else None)
                 for trace in package['data'] for event in trace['sequence']])
         data.append(';'.join([call for (call, _) in bow if not call == 'TERMINAL']))
         print('Gathering data for LDA: {:5d}/{:d} packages'.format(i+1, npackages), end='\r')
     print()
     return data, js
 
-def write_dist(fout, js, dist):
+def write_data(fout, js, dist, args, top_words):
     assert len(js['packages']) == len(dist)
-    print('Writing to output file...')
     for (package, dist) in zip(js['packages'], dist):
         package['topic'] = list(dist)
+    js['lda_args'] = vars(args)
+    js['lda_top_words'] = top_words
     json.dump(js, fp=fout, indent=2)
 
 class LDA():
@@ -78,15 +88,14 @@ class LDA():
         else:
             self.tf_vectorizer = CountVectorizer(lowercase=False, token_pattern=u'[^;]+;')
             self.model = LatentDirichletAllocation(args.ntopics, doc_topic_prior=args.alpha,
-                    learning_method='batch', max_iter=100, verbose=1, evaluate_every=1, max_doc_update_iter=100)
+                    learning_method='batch', max_iter=100, verbose=1, evaluate_every=1, max_doc_update_iter=100,
+                    mean_change_tol=1e-5)
 
-    def print_top_words(self, top_words):
+    def top_words(self, ntop_words):
         features = self.tf_vectorizer.get_feature_names()
-        print('\nTop %d words from ' % top_words)
-        for idx, topic in enumerate(self.model.components_):
-            print('Topic #%d:' % idx)
-            print('\n'.join([features[i] for i in topic.argsort()[:-top_words - 1:-1]]))
-        print()
+        top_words = [[features[i] for i in topic.argsort()[:-ntop_words - 1:-1]]
+                        for topic in self.model.components_]
+        return top_words
 
     def train(self, data):
         tf = self.tf_vectorizer.fit_transform(data)
