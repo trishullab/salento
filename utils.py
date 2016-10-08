@@ -4,7 +4,7 @@ import collections
 from six.moves import cPickle
 import numpy as np
 
-from salento import SalentoJsonParser
+from data_reader import JsonParser
 
 def weighted_pick(weights):
     t = np.cumsum(weights)
@@ -16,17 +16,18 @@ class DataLoader():
         self.batch_size = batch_size
         self.seq_length = seq_length
 
-        print("reading text file")
         self.preprocess(input_file)
         self.create_batches()
         self.reset_batch_pointer()
 
     def preprocess(self, input_file):
+        print("Reading input file...")
         with open(input_file, "r") as f:
-            data, topics = SalentoJsonParser(f).as_tokens(start_end=True)
+            data, topics = JsonParser(f).as_tokens(start_end=True)
         self.chars = sorted(set(data))
         self.vocab_size = len(self.chars)
         self.vocab = dict(zip(self.chars, range(len(self.chars))))
+        print('Vectorizing data...')
         self.tensor = np.array(list(map(self.vocab.get, data)))
         self.topics = np.array([np.array(t) for t in topics])
         self.ntopics = len(topics[0])
@@ -39,6 +40,7 @@ class DataLoader():
         if self.num_batches==0:
             assert False, "Not enough data. Make seq_length and batch_size small."
 
+        print('Creating batches...')
         self.tensor = self.tensor[:self.num_batches * self.batch_size * self.seq_length]
         self.topics = self.topics[:self.num_batches * self.batch_size * self.seq_length]
         xdata = self.tensor
@@ -49,6 +51,8 @@ class DataLoader():
         self.x_batches = np.split(xdata.reshape(self.batch_size, -1), self.num_batches, 1)
         self.t_batches = np.split(tdata.reshape(self.batch_size, -1, self.ntopics), self.num_batches, 1)
         self.y_batches = np.split(ydata.reshape(self.batch_size, -1), self.num_batches, 1)
+        del self.tensor # these potentially occupy huge chunks of memory
+        del self.topics # and are not needed anymore
 
 
     def next_batch(self):

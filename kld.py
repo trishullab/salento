@@ -6,13 +6,13 @@ import os
 import logging as log
 import time
 import pickle
-from salento import SalentoJsonParser, type_of, to_model_alphabet, calls_in_sequence, START, END
+from data_reader import JsonParser, type_of, to_model_alphabet, calls_in_sequence, START, END
 from model import Model
 
 def main():
     argparser = argparse.ArgumentParser()
     argparser.add_argument('data_file', type=str, nargs=1,
-                       help='Salento\'s output file in JSON')
+                       help='output file in JSON')
     argparser.add_argument('--save_dir', type=str, default='save',
                        help='directory where model is stored')
     argparser.add_argument('--debug', action='store_true',
@@ -27,7 +27,7 @@ def main():
         kl = KLD(args, sess)
 
         with open(args.data_file[0]) as data:
-            parser = SalentoJsonParser(data)
+            parser = JsonParser(data)
         
         for pack in parser.package_names():
             sequences = parser.as_sequences(pack)

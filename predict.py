@@ -6,7 +6,7 @@ import ast
 import pickle
 
 from model import Model
-from salento import START
+from data_reader import START
 
 def main():
     parser = argparse.ArgumentParser()

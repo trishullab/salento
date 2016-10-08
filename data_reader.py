@@ -3,8 +3,6 @@ import json
 def type_of(event):
     if 'call' in event:
         return 'call'
-    if 'branches' in event:
-        return 'branches'
     raise KeyError('Malformed event', event)
 
 def calls_in_sequence(sequence):
@@ -21,25 +19,29 @@ def to_model_alphabet(sequence, vocab):
     return [vocab[token] for token in calls_as_tokens(sequence)]
 
 START, END = 'START', 'END'
-class SalentoJsonParser():
+class JsonParser():
     def __init__(self, f):
         self.json_data = json.loads(f.read())
-        _packages = len(self.json_data['packages'])
-        _sequences = sum([len(p['data']) for p in self.json_data['packages']])
-        print('Read {0} packages, {1} sequences'.format(_packages, _sequences))
 
     def as_tokens(self, start_end=False):
         ret = []
         topics = []
-        for package in self.json_data['packages']:
-            seq = []
-            for data_point in package['data']:
-                seq += [START] if start_end else []
-                seq += calls_as_tokens(data_point['sequence'])
-                seq += [END] if start_end else []
-            ret += seq
-            for i in range(len(seq)):
-                topics.append(package['topic'])
+        npackages = len(self.json_data['packages'])
+        nsequences = 0
+        for i, package in enumerate(self.json_data['packages']):
+            print('Reading traces from {:4d}/{:d} packages...'.format(i+1, npackages), end='\r')
+            for topic in package['topic']:
+                seq = []
+                for data_point in package['data']:
+                    nsequences += 1
+                    seq += [START] if start_end else []
+                    seq += calls_as_tokens(data_point['sequence'])
+                    seq += [END] if start_end else []
+                ret += seq
+                for i in range(len(seq)):
+                    topics.append(topic)
+        print()
+        print('Read {:d} traces from {:d} packages'.format(nsequences, npackages))
         return ret, topics
 
     def package_names(self):
