@@ -23,7 +23,7 @@ class DataLoader():
     def preprocess(self, input_file):
         print("Reading input file...")
         with open(input_file, "r") as f:
-            data, topics = JsonParser(f).as_tokens(start_end=True)
+            data, topics = JsonParser(f).read()
         self.chars = sorted(set(data))
         self.vocab_size = len(self.chars)
         self.vocab = dict(zip(self.chars, range(len(self.chars))))

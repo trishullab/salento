@@ -40,7 +40,7 @@ def main():
 
     ok = 'r'
     while ok == 'r':
-        model = LDA(args)
+        model = LDA(args=args)
         model.train(data)
         top_words = model.top_words(args.top_words)
         for i, words in enumerate(top_words):
@@ -82,7 +82,10 @@ def write_data(fout, js, dist, args, top_words):
 
 class LDA():
 
-    def __init__(self, args, from_file=None):
+    def __init__(self, args=None, from_file=None):
+        """ Initialize LDA model from either arguments or a file. If both are
+            provided, file will be used."""
+        assert args or from_file, 'Improper initialization of LDA model'
         if from_file is not None:
             self.model, self.tf_vectorizer = pickle.load(from_file)
         else:

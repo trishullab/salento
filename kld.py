@@ -6,45 +6,49 @@ import os
 import logging as log
 import time
 import pickle
-from data_reader import JsonParser, type_of, to_model_alphabet, calls_in_sequence, START, END
+from data_reader import JsonParser
 from model import Model
+from lda import LDA
 
 def main():
     argparser = argparse.ArgumentParser()
     argparser.add_argument('data_file', type=str, nargs=1,
-                       help='output file in JSON')
+                       help='input file in JSON')
     argparser.add_argument('--save_dir', type=str, default='save',
                        help='directory where model is stored')
     argparser.add_argument('--debug', action='store_true',
                        help='enable printing debug log to debug.log')
+    argparser.add_argument('--seed', type=int, default=None,
+                       help='random seed')
     args = argparser.parse_args()
     if args.debug:
         log.basicConfig(level=log.DEBUG, filename='debug.log', filemode='w', format='%(message)s')
     start = int(time.time())
-    random.seed(start)
+    random.seed(args.seed if args.seed is not None else start)
 
     with tf.Session() as sess:
-        kl = KLD(args, sess)
-
         with open(args.data_file[0]) as data:
             parser = JsonParser(data)
-        
-        for pack in parser.package_names():
-            sequences = parser.as_sequences(pack)
-            locations = parser.get_call_locations(pack)
-            log.debug('\n### ' + pack)
-            kld = kl.compute_kld(locations, sequences)
-            print('### ' + pack)
-            for location in locations:
-                print('  {:35s} : {:.2f}'.format(location, kld[location]))
+
+        kld = KLD(args, parser, sess)
+        for pack in parser.packages:
+            locations = parser.locations(pack)
+            kld_dict = dict([(l, kld.compute(l, pack)) for l in locations])
+            log.debug('\n### ' + pack['name'])
+            print('### ' + pack['name'])
+            for l in locations:
+                print('  {:35s} : {:.2f}'.format(l, kld_dict[l]))
 
     print('Seed: ' + str(start))
     print('Time taken: ' + str(int(time.time() - start)) + 's')
 
 class KLD():
-    def __init__(self, args, sess):
+    def __init__(self, args, parser, sess):
         self.args = args
+        self.parser = parser
         self.sess = sess
+
+        print('Loading neural network and LDA models...')
         with open(os.path.join(args.save_dir, 'config.pkl'), 'rb') as f:
             saved_args = pickle.load(f)
         with open(os.path.join(args.save_dir, 'chars_vocab.pkl'), 'rb') as f:
@@ -57,26 +61,11 @@ class KLD():
         if ckpt and ckpt.model_checkpoint_path:
             saver.restore(self.sess, ckpt.model_checkpoint_path)
 
-    def compute_kld(self, locations, sequences):
+        with open(os.path.join(args.save_dir, 'lda.pkl'), 'rb') as f:
+            self.lda = LDA(from_file=f)
 
-        # computes the sequences ending at a location
-        def sequences_ending_at(location):
-            seqs = []
-            for sequence in sequences:
-                sequence = sequence['sequence']
-                for i, event in enumerate(sequence):
-                    if type_of(event) == 'call' and event['location'] == location:
-                        s = calls_in_sequence(sequence[0: i+1])
-                        seqs.append(s)
-            return seqs
-
-        kld_l = {}
-        for l in locations:
-            seqs = sequences_ending_at(l)
-            kld_l[l] = self.kld(l, seqs)
-        return kld_l
-
-    def kld(self, l, seqs, nsamples=10, niters_convergence=10):
+    def compute(self, l, pack, nsamples=10, niters_convergence=10):
+        seqs = self.parser.sequences(pack, l)
 
         def sample(s, n=1):
             samples = []
@@ -85,7 +74,7 @@ class KLD():
             return samples
 
         def qprob(seq):
-            seq = [self.vocab[START]] + to_model_alphabet(seq, self.vocab) + [self.vocab[END]]
+            seq = list(map(self.vocab.get, self.parser.stream(seq)))
             pr = self.model.probability(self.sess, seq)
             pr, seq = pr[:-1], seq[1:] # prob distribution is over the next symbol, first symbol is prime (START)
             pr = [p[event] for p, event in zip(pr, seq)]

@@ -1,42 +1,27 @@
 import json
-
-def type_of(event):
-    if 'call' in event:
-        return 'call'
-    raise KeyError('Malformed event', event)
-
-def calls_in_sequence(sequence):
-    return [event for event in sequence if type_of(event) == 'call']
-
-def calls_as_tokens(sequence):
-    s = []
-    call_events = calls_in_sequence(sequence)
-    for event in call_events:
-        s += [event['call']] + [str(i) + '_' + str(state) for i, state in enumerate(event['states'])]
-    return s
-
-def to_model_alphabet(sequence, vocab):
-    return [vocab[token] for token in calls_as_tokens(sequence)]
+import itertools
 
 START, END = 'START', 'END'
+
 class JsonParser():
     def __init__(self, f):
         self.json_data = json.loads(f.read())
+        self.packages = self.json_data['packages']
 
-    def as_tokens(self, start_end=False):
+    def read(self):
+        """ Read the entire dataset of sequences with topics into lists
+            !!! MEMORY INTENSIVE METHOD !!!"""
         ret = []
         topics = []
-        npackages = len(self.json_data['packages'])
+        npackages = len(self.packages)
         nsequences = 0
-        for i, package in enumerate(self.json_data['packages']):
+        for i, package in enumerate(self.packages):
             print('Reading traces from {:4d}/{:d} packages...'.format(i+1, npackages), end='\r')
             for topic in package['topic']:
                 seq = []
                 for data_point in package['data']:
                     nsequences += 1
-                    seq += [START] if start_end else []
-                    seq += calls_as_tokens(data_point['sequence'])
-                    seq += [END] if start_end else []
+                    seq += self.stream(data_point['sequence'])
                 ret += seq
                 for i in range(len(seq)):
                     topics.append(topic)
@@ -44,25 +29,22 @@ class JsonParser():
         print('Read {:d} traces from {:d} packages'.format(nsequences, npackages))
         return ret, topics
 
-    def package_names(self):
-        return [package['name'] for package in self.json_data['packages']]
+    def stream(self, sequence):
+        s = [[event['call']] + [str(i) + '_' + str(state) for i, state in enumerate(event['states'])]
+                for event in sequence]
+        return [START] + list(itertools.chain(*s)) + [END]
 
-    def get_call_locations(self, package_name=None):
-        locations = []
-        for package in self.json_data['packages']:
-            if package_name and not package['name'] == package_name:
-                continue
-            for data_point in package['data']:
-                for event in data_point['sequence']:
-                    if type_of(event) == 'call':
-                        locations.append(event['location'])
-        return set(locations)
+    def locations(self, package):
+        locations = [event['location'] for data_point in package['data']
+                        for event in data_point['sequence']]
+        return list(set(locations))
 
-    def as_sequences(self, package_name=None):
+    def sequences(self, package, location=None):
+        """ Get all sequences in package. If location is given, then get all
+            sequences in package that end at location."""
         seqs = []
-        for package in self.json_data['packages']:
-            if package and not package['name'] == package_name:
-                continue
-            for data_point in package['data']:
-                seqs.append(data_point)
+        for data_point in package['data']:
+            seq = data_point['sequence']
+            if location is None or seq[-1]['location'] == location:
+                seqs.append(seq)
         return seqs
