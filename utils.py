@@ -1,10 +1,11 @@
-import codecs
-import os
-import collections
-from six.moves import cPickle
+import random
 import numpy as np
 
 from data_reader import JsonParser
+
+def sample(s, nsamples=1):
+    samples = [random.choice(s) for i in range(nsamples)] if nsamples > 1 else random.choice(s)
+    return samples
 
 def weighted_pick(weights):
     t = np.cumsum(weights)
