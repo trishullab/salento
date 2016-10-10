@@ -46,6 +46,8 @@ def main():
             for l, k in sorted(klds, key=lambda x: -x[1]):
                 print('  {:35s} : {:.2f}'.format(l, k))
 
+    print('Not in vocab: ')
+    print(kld.not_in_vocab)
     print('Seed: ' + str(start))
     print('Time taken: ' + str(int(time.time() - start)) + 's')
 
@@ -54,6 +56,7 @@ class KLD():
         self.args = args
         self.parser = parser
         self.sess = sess
+        self.not_in_vocab = []
 
         with open(os.path.join(args.save_dir, 'config.pkl'), 'rb') as f:
             saved_args = pickle.load(f)
@@ -110,6 +113,10 @@ class KLD():
         bow = set([(event['call'], event['location'] if self.args.location_sensitive else None)
                 for seq in seqs_l for event in seq])
         lda_data = [';'.join([call for (call, _) in bow if not call == 'TERMINAL'])]
+        not_in_vocab = [call for (call, _) in bow if call not in self.vocab]
+        if not not_in_vocab == []:
+            self.not_in_vocab += list(set(not_in_vocab) - set(self.not_in_vocab))
+            return -1.
 
         log.debug('\n' + l)
         triple_sample = [(sample(seqs_l, nsamples=1),
