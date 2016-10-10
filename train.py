@@ -25,6 +25,8 @@ def main():
                        help='number of epochs')
     parser.add_argument('--learning_rate', type=float, default=0.002,
                        help='learning rate')
+    parser.add_argument('--print_every', type=int, default=1,
+                       help='print every k steps of training')
     parser.add_argument('--init_from', type=str, default=None,
                        help="""continue training from saved model at this path. Path must contain files saved by previous training process: 
                             'config.pkl'        : configuration;
@@ -72,10 +74,12 @@ def train(args):
                     feed[model.topics[j].name] = t[j]
                 train_loss, state, _ = sess.run([model.cost, model.final_state, model.train_op], feed)
                 end = time.time()
-                print("{}/{} (epoch {}), train_loss = {:.3f}, time/batch = {:.3f}" \
-                    .format(i * data_loader.num_batches + b,
-                            args.num_epochs * data_loader.num_batches,
-                            i, train_loss, end - start))
+                step = i * data_loader.num_batches + b
+                if step % args.print_every == 0:
+                    print("{}/{} (epoch {}), train_loss = {:.3f}, time/batch = {:.3f}" \
+                        .format(i * data_loader.num_batches + b,
+                                args.num_epochs * data_loader.num_batches,
+                                i, train_loss, end - start))
             checkpoint_path = os.path.join(args.save_dir, 'model.ckpt')
             saver.save(sess, checkpoint_path)
             print("model saved to {}".format(checkpoint_path))
