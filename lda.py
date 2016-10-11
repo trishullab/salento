@@ -7,6 +7,7 @@ import itertools
 import numpy as np
 from time import time
 from utils import weighted_pick
+from collections import OrderedDict
 
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.decomposition import LatentDirichletAllocation
@@ -44,7 +45,9 @@ def main():
         model.train(data)
         top_words = model.top_words(args.top_words)
         for i, words in enumerate(top_words):
-            print('Top words in Topic#{:d}\n'.format(i) + '\n'.join(words) + '\n')
+            print('\nTop words in Topic#{:d}'.format(i))
+            for w in words:
+                print('{:.2f} {:s}'.format(words[w], w))
         print('\nOK with the model (y(es)/n(o)/r(edo))? ', end='')
         ok = sys.stdin.readline().rstrip('\n')
 
@@ -89,14 +92,14 @@ class LDA():
         if from_file is not None:
             self.model, self.tf_vectorizer = pickle.load(from_file)
         else:
-            self.tf_vectorizer = CountVectorizer(lowercase=False, token_pattern=u'[^;]+;')
+            self.tf_vectorizer = CountVectorizer(lowercase=False, token_pattern=u'[^;]+')
             self.model = LatentDirichletAllocation(args.ntopics, doc_topic_prior=args.alpha,
                     learning_method='batch', max_iter=100, verbose=1, evaluate_every=1, max_doc_update_iter=100,
                     mean_change_tol=1e-5)
 
     def top_words(self, ntop_words):
         features = self.tf_vectorizer.get_feature_names()
-        top_words = [[features[i] for i in topic.argsort()[:-ntop_words - 1:-1]]
+        top_words = [OrderedDict([(features[i], topic[i]) for i in topic.argsort()[:-ntop_words - 1:-1]])
                         for topic in self.model.components_]
         return top_words
 
