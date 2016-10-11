@@ -9,7 +9,7 @@ from time import time
 from utils import weighted_pick
 from collections import OrderedDict
 
-from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 from sklearn.decomposition import LatentDirichletAllocation
 
 def main():
@@ -22,11 +22,13 @@ def main():
                        help='output JSON file')
     argparser.add_argument('--save_dir', type=str, default='save',
                        help='directory to store LDA model')
+    argparser.add_argument('--vectorizer', type=str, default='tf', choices=['tf', 'tfidf'],
+                       help='use "tf" or "tfidf" to vectorize data')
     argparser.add_argument('--alpha', type=float, default=0.1,
                        help='initial alpha value')
-    argparser.add_argument('--num_gibbs_samples', type=int, default=100,
-                       help='number of Gibbs samples for inference on given data')
-    argparser.add_argument('--num_gibbs_iters', type=int, default=10,
+    argparser.add_argument('--num_samples', type=int, default=10,
+                       help='number of samples for inference on given data')
+    argparser.add_argument('--gibbs_num_iters', type=int, default=10,
                        help='number of Gibbs sampling iterations')
     argparser.add_argument('--gibbs_random_init', action='store_true',
                        help='randomly initialize Gibbs chain instead of from trained model')
@@ -54,10 +56,10 @@ def main():
     if ok == 'y':
         print('Saving model to {:s}'.format(os.path.join(args.save_dir, 'lda.pkl')))
         with open(os.path.join(args.save_dir, 'lda.pkl'), 'wb') as fmodel:
-            pickle.dump((model.model, model.tf_vectorizer), fmodel)
+            pickle.dump((model.model, model.vectorizer), fmodel)
 
-        print('Running inference (Gibbs sampling) on given data...')
-        dist = model.infer(data, args.num_gibbs_samples, args.num_gibbs_iters, args.gibbs_random_init)
+        print('Running inference on given data...')
+        dist = model.infer(data, args.num_samples, args.gibbs_num_iters, args.gibbs_random_init)
         print('Writing to output file...')
         with open(args.output_file, 'w') as fout:
             write_data(fout, js, dist, args, top_words)
@@ -90,37 +92,47 @@ class LDA():
             provided, file will be used."""
         assert args or from_file, 'Improper initialization of LDA model'
         if from_file is not None:
-            self.model, self.tf_vectorizer = pickle.load(from_file)
+            self.model, self.vectorizer = pickle.load(from_file)
         else:
-            self.tf_vectorizer = CountVectorizer(lowercase=False, token_pattern=u'[^;]+')
+            if args.vectorizer == 'tfidf':
+                print('Warning: tfidf will NOT perform Gibbs sampling (this will be fixed soon)')
+                vectorizer = TfidfVectorizer
+            elif args.vectorizer == 'tf':
+                vectorizer = CountVectorizer
+            self.vectorizer = vectorizer(lowercase=False, token_pattern=u'[^;]+')
             self.model = LatentDirichletAllocation(args.ntopics, doc_topic_prior=args.alpha,
                     learning_method='batch', max_iter=100, verbose=1, evaluate_every=1, max_doc_update_iter=100,
                     mean_change_tol=1e-5)
 
     def top_words(self, ntop_words):
-        features = self.tf_vectorizer.get_feature_names()
+        features = self.vectorizer.get_feature_names()
         top_words = [OrderedDict([(features[i], topic[i]) for i in topic.argsort()[:-ntop_words - 1:-1]])
                         for topic in self.model.components_]
         return top_words
 
     def train(self, data):
-        tf = self.tf_vectorizer.fit_transform(data)
-        self.model.fit(tf)
+        vect = self.vectorizer.fit_transform(data)
+        self.model.fit(vect)
         # note: normalizing does not change subsequent inference, provided no further training is done
         self.model.components_ /= self.model.components_.sum(axis=1)[:, np.newaxis]
 
-    def infer(self, data, nsamples=100, niters=10, random_init=False):
+    def infer(self, data, nsamples=10, niters=10, random_init=False):
         """ Return samples from the Bayesian posterior distribution on topic
             vectors given the data, by running Gibbs sampling. Trained model
             provides topic-word distribution (components_) and, if desired,
             initial value for doc_topic_dist in the chain.
         """
-        tf = self.tf_vectorizer.transform(data)
-        dist = self.model.transform(tf)
-        assert tf.shape[0] == dist.shape[0]
-        gibbs_samples = [self.gibbs(doc, None if random_init else doc_topic_dist, nsamples, niters)
-                            for doc, doc_topic_dist in zip(tf, dist)]
-        return gibbs_samples
+        vect = self.vectorizer.transform(data)
+        dist = self.model.transform(vect)
+        assert vect.shape[0] == dist.shape[0]
+
+        # FIXME: figure out how tfidf would work with Gibbs sampling
+        if isinstance(self.vectorizer, TfidfVectorizer):
+            samples = [[list(doc_topic_dist)] * nsamples for doc_topic_dist in dist]
+        else:
+            samples = [self.gibbs(doc, None if random_init else doc_topic_dist, nsamples-1, niters)
+                            + [list(doc_topic_dist)] for doc, doc_topic_dist in zip(vect, dist)]
+        return samples
 
     def gibbs(self, doc, doc_topic_dist, nsamples, niters):
         """ Given a document d = w_1...w_n, we compute p(t | w_i) for each word
