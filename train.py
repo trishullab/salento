@@ -3,6 +3,7 @@ import tensorflow as tf
 
 import argparse
 import time
+import datetime
 import os
 import pickle
 
@@ -56,6 +57,8 @@ def train(args):
     print('Compiling model...')
     model = Model(args)
 
+    start_t = datetime.datetime.now()
+    print('Training begins at {}'.format(start_t))
     with tf.Session() as sess:
         tf.initialize_all_variables().run()
         saver = tf.train.Saver(tf.all_variables())
@@ -84,6 +87,9 @@ def train(args):
             saver.save(sess, checkpoint_path)
             print("model saved to {}".format(checkpoint_path))
 
+    end_t = datetime.datetime.now()
+    print('Training ends at {}'.format(end_t))
+    print('Training time: {}'.format(end_t - start_t))
 
 def check_compat(args, data_loader):
     # check if all necessary files exist 
