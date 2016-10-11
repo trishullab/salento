@@ -124,7 +124,8 @@ class KLD():
                           self.lda.infer(lda_data, nsamples=self.args.num_samples)[0])
                                 for i in range(self.args.num_iters)]
         K = list(map(lambda t: self.inner_sum(*t), triple_sample))
-        return sum(K) / np.count_nonzero(K) # discard inner_sums that resulted in 0
+        c = np.count_nonzero(K) # discard inner_sums that resulted in 0
+        return sum(K) / c if c > 0 else -2.
 
 if __name__ == '__main__':
     main()
