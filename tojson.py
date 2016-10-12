@@ -12,6 +12,9 @@ def main():
                        help='output JSON file')
     argparser.add_argument('--prefixes', action='store_true',
                        help='output all prefixes of each sequence')
+    argparser.add_argument('--slice_locations', action='store_true',
+                       help="""for each package, generate k packages, where k is the number of locations,
+                             that each contain only sequences ending at their respective location""")
     args = argparser.parse_args()
     to_json(args)
 
@@ -23,10 +26,18 @@ def to_json(args):
 
     def add_sequences_to_package():
         random.shuffle(jsequences)
-        package = { 'data' : jsequences, 'name' : name }
-        if len(package['data']) > 0:
+        if jsequences == []:
+            return 0
+        if not args.slice_locations:
+            package = { 'data' : jsequences, 'name' : name }
             packages.append(package)
-            print('{:5d} packages done'.format(len(packages)), end='\r')
+        else:
+            locations = list(set([event['location'] for seq in jsequences for event in seq['sequence']]))
+            seqs_l = [[seq for seq in jsequences if seq['sequence'][-1]['location'] == l] for l in locations]
+            packages_l = [{ 'data' : seq_l, 'name' : name, 'slice' : l } for l, seq_l in zip(locations, seqs_l)]
+            packages.extend(packages_l)
+
+        print('{:6d} packages done'.format(len(packages)), end='\r')
         return len(jsequences)
 
     with open(args.input_file) as fin:
