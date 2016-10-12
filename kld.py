@@ -7,6 +7,7 @@ import logging as log
 import time
 import pickle
 from utils import sample
+from datetime import datetime
 from data_reader import JsonParser
 from model import Model
 from lda import LDA
@@ -21,17 +22,23 @@ def main():
                        help='enable printing debug log to debug.log')
     argparser.add_argument('--seed', type=int, default=None,
                        help='random seed')
-    argparser.add_argument('--num_samples', type=int, default=10,
-                       help='number of samples used in estimators')
+    argparser.add_argument('--num_samples_seqs', type=int, default=10,
+                       help='number of samples of sequences used in estimator')
+    argparser.add_argument('--num_samples_topics', type=int, default=10,
+                       help='number of samples of topics used in estimator')
     argparser.add_argument('--num_iters', type=int, default=10,
                        help='number of iterations for convergence in estimators')
     argparser.add_argument('--location_sensitive', action='store_true',
                        help='document is location-sensitive set of calls (default False)')
     args = argparser.parse_args()
+    if args.seed is None:
+        args.seed = int(time.time())
+    random.seed(args.seed)
+    print(args)
     if args.debug:
         log.basicConfig(level=log.DEBUG, filename='debug.log', filemode='w', format='%(message)s')
-    start = int(time.time())
-    random.seed(args.seed if args.seed is not None else start)
+    start = datetime.now()
+    print('Started at {}'.format(start))
 
     with tf.Session() as sess:
         with open(args.data_file[0]) as data:
@@ -46,10 +53,8 @@ def main():
             for l, k in sorted(klds, key=lambda x: -x[1]):
                 print('  {:35s} : {:.2f}'.format(l, k))
 
-    print('Not in vocab: ')
-    print(kld.not_in_vocab)
-    print('Seed: ' + str(start))
-    print('Time taken: ' + str(int(time.time() - start)) + 's')
+    print('Not in vocab: {}'.format(kld.not_in_vocab))
+    print('Time taken: {}'.format(datetime.now() - start))
 
 class KLD():
     def __init__(self, args, parser, sess):
@@ -120,8 +125,8 @@ class KLD():
 
         log.debug('\n' + l)
         triple_sample = [(sample(seqs_l, nsamples=1),
-                          sample(seqs_l, nsamples=self.args.num_samples),
-                          self.lda.infer(lda_data, nsamples=self.args.num_samples)[0])
+                          sample(seqs_l, nsamples=self.args.num_samples_seqs),
+                          self.lda.infer(lda_data, nsamples=self.args.num_samples_topics)[0])
                                 for i in range(self.args.num_iters)]
         K = list(map(lambda t: self.inner_sum(*t), triple_sample))
         c = np.count_nonzero(K) # discard inner_sums that resulted in 0
