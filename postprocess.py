@@ -1,4 +1,5 @@
 import argparse
+import itertools
 import numpy as np
 
 def main():
@@ -9,10 +10,13 @@ def main():
                        help='sort top-k% of KLD values and print the top KLD from each package')
     argparser.add_argument('--plot', type=str, default=None,
            help='outfile for plotting all KLDs on a heat map, drawing a cutoff line if --topk is used')
+    argparser.add_argument('--compare', type=str, default=None,
+                       help='compare with the given kld.out')
     args = argparser.parse_args()
-    if args.topk is None and args.plot is None:
+    if args.topk is None and args.plot is None and args.compare is None:
         argparser.error('Provide at least one option')
 
+    print(args)
     cutoff = 0
     klds = read_klds(args.kld_out[0])
 
@@ -20,6 +24,9 @@ def main():
         cutoff = do_topk(klds, args.topk)
     if args.plot:
         do_plot(klds, args.plot, cutoff)
+    if args.compare is not None:
+        klds2 = read_klds(args.compare)
+        do_compare(klds, klds2)
 
 def do_plot(klds, plotfile, cutoff):
     import matplotlib.pyplot as plt
@@ -43,6 +50,29 @@ def do_topk(klds, topk):
     top_klds = t
     print('\n'.join(['{} {} {}'.format(p, l, k) for p, l, k in top_klds]))
     return top_klds[-1][2]
+
+def to_dict(klds):
+    packs = [pack for pack, _ in itertools.groupby(klds, lambda x: x[0])]
+    locs = [list(filter(lambda x: x[0] == pack, klds)) for pack in packs]
+    locs = [list(map(lambda x: (x[1], x[2]), loc)) for loc in locs]
+    dic = { pack : dict(loc) for pack, loc in zip(packs, locs) }
+    return dic
+
+def do_compare(klds, klds2):
+    klds = to_dict(klds)
+    klds2 = to_dict(klds2)
+
+    for pack in klds:
+        if pack not in klds2:
+            continue
+        print('### ' + pack)
+        for loc in klds[pack]:
+            if loc not in klds2[pack]:
+                continue
+            kld1 = klds[pack][loc]
+            kld2 = klds2[pack][loc]
+            mag = kld2 / kld1
+            print('  {:35s} : {:.2f} : {:.2f} : {:.2f}'.format(loc, kld1, kld2, mag))
 
 def read_klds(outfile):
     klds = [] # list of triples (package, location, kld)
