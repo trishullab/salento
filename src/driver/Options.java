@@ -15,6 +15,9 @@ public final class Options
     /** maximum length of sequence */
     public static final int MAX_LEN = 1000;
 
+    /** interprocedural or not? */
+    public static boolean interprocedural = true;
+
     /** validate each sequence before it's printed (by calling hasValidHistory()).
      * true by default */
     public static boolean validateSequences = true;

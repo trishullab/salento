@@ -253,7 +253,7 @@ public class SequenceExtractor extends BodyTransformer
         if ((succ = handleInvokeRelevant(stmt, cfg, path, tos)) != null) {
             extractSequence(succ, cfg, path, tos);
         }
-        else if (appMethods.contains(callee)) { /* step into callee */
+        else if (Options.interprocedural && appMethods.contains(callee)) { /* step into callee */
             Body body = callee.retrieveActiveBody();
             UnitGraph calleeCfg = generateUnitGraph(body);
             Unit head = body.getUnits().getFirst();

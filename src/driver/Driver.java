@@ -72,6 +72,10 @@ public class Driver {
             driver.Options.obeyAndroidEntryPoints = arg.equals("y");
             argsList.remove("-obey-android-entry-points");
         }
+        if (argsList.contains("-no-interprocedural")) {
+            driver.Options.interprocedural = false;
+            argsList.remove("-no-interprocedural");
+        }
         if (argsList.contains("-validate-sequences")) {
             String arg = argsList.remove(argsList.indexOf("-validate-sequences")+1);
             assert arg.equals("y") || arg.equals("n") : "invalid argument to -validate-sequences";
