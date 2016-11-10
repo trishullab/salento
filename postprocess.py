@@ -30,14 +30,15 @@ def main():
 
 def do_plot(klds, plotfile, cutoff):
     import matplotlib.pyplot as plt
+    from matplotlib.colors import Normalize
     x = np.array(range(len(klds)))
     y = np.array([kld for (_, _, kld) in klds])
-    plt.hist2d(x, y, bins=[25,25])
+    plt.hist2d(x, y, bins=[20,20], norm=Normalize(vmin=1, vmax=50), cmap='gray_r')
     plt.colorbar()
     plt.xlabel('Program models', fontsize='large')
     plt.ylabel('Anomaly scores', fontsize='large')
     if cutoff > 0:
-        plt.axhline(cutoff, color='w')
+        plt.axhline(cutoff, color='r', linewidth=2)
     plt.savefig(plotfile, bbox_inches='tight')
 
 def do_topk(klds, topk):
