@@ -1,91 +1,201 @@
-<project name="driver" default="compile" basedir=".">
-
-  <!-- ===================================== -->
-  <!-- Here alias -->
-  <!-- ===================================== -->
-  <property name="baselib" value="./lib"/>
-  <property name="basesrc" value="./src"/>
-  <property name="basebin" value="./classes"/>
-  <property name="baseout" value="./sootOutput"/>
-  <property environment="env"/>
-  <property name="basedir" value="${env.SALENTO_ANDROID_HOME}"/>
-
-  <!-- ===================================== -->
-  <!-- Here libraries (*.jar files) -->
-  <!-- ===================================== -->
-  <path id="classpath.core">
-      <pathelement path="${baselib}/gson-2.6.3.jar" />
-      <pathelement path="${baselib}/jasminclasses-2.5.0.jar" />
-      <pathelement path="${baselib}/java_cup.jar" />
-      <pathelement path="${baselib}/polyglot.jar" />
-      <pathelement path="${baselib}/soot-trunk.jar" />
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="driver-android" default="all">
+  
+  
+  <property file="build.properties"/>
+  <!-- Uncomment the following property if no tests compilation is needed -->
+  <!-- 
+  <property name="skip.tests" value="true"/>
+   -->
+  
+  <!-- Compiler options -->
+  
+  <property name="compiler.debug" value="on"/>
+  <property name="compiler.generate.no.warnings" value="off"/>
+  <property name="compiler.args" value=""/>
+  <property name="compiler.max.memory" value="700m"/>
+  <patternset id="ignored.files">
+    <exclude name="**/*.hprof/**"/>
+    <exclude name="**/*.pyc/**"/>
+    <exclude name="**/*.pyo/**"/>
+    <exclude name="**/*.rbc/**"/>
+    <exclude name="**/*.yarb/**"/>
+    <exclude name="**/*~/**"/>
+    <exclude name="**/.DS_Store/**"/>
+    <exclude name="**/.git/**"/>
+    <exclude name="**/.hg/**"/>
+    <exclude name="**/.svn/**"/>
+    <exclude name="**/CVS/**"/>
+    <exclude name="**/__pycache__/**"/>
+    <exclude name="**/_svn/**"/>
+    <exclude name="**/vssver.scc/**"/>
+    <exclude name="**/vssver2.scc/**"/>
+  </patternset>
+  <patternset id="library.patterns">
+    <include name="*.war"/>
+    <include name="*.swc"/>
+    <include name="*.zip"/>
+    <include name="*.ear"/>
+    <include name="*.egg"/>
+    <include name="*.ane"/>
+    <include name="*.jar"/>
+  </patternset>
+  <patternset id="compiler.resources">
+    <exclude name="**/?*.java"/>
+    <exclude name="**/?*.form"/>
+    <exclude name="**/?*.class"/>
+    <exclude name="**/?*.groovy"/>
+    <exclude name="**/?*.scala"/>
+    <exclude name="**/?*.flex"/>
+    <exclude name="**/?*.kt"/>
+    <exclude name="**/?*.clj"/>
+    <exclude name="**/?*.aj"/>
+  </patternset>
+  
+  
+  <!-- Project Libraries -->
+  
+  <path id="library.gson-2.6.3.classpath">
+    <pathelement location="${basedir}/lib/gson-2.6.3.jar"/>
   </path>
-
-  <!-- =========================================== -->
-  <!-- Create the classes directory                -->
-  <!-- =========================================== -->
-  <target name="init">
-    <tstamp/>
-    <mkdir dir="${basebin}"/>
-  </target>
-
-  <!-- =========================================== -->
-  <!-- Check for updates in src directory          -->
-  <!-- =========================================== -->
-  <target name="updatecheck" depends="init">
-  	<uptodate property="noupdates" targetfile="${basesrc}/.build">
-        <srcfiles dir="${basesrc}/driver" />
-	</uptodate>
-  </target>
-
-  <!-- =========================================== -->
-  <!-- Compile the source files in a package       -->
-  <!-- =========================================== -->
-  <target name="compile"
-  		  depends="updatecheck"
-		  unless="noupdates">
-    <javac srcdir="${basesrc}/driver"	   
-           destdir="${basebin}"
-           classpathref="classpath.core"
-           debug="false">
+  
+  <path id="library.lib.classpath">
+    <pathelement location="${basedir}/lib/android-support-v4.jar"/>
+    <pathelement location="${basedir}/lib/android.jar"/>
+    <pathelement location="${basedir}/lib/jasminclasses-2.5.0.jar"/>
+    <pathelement location="${basedir}/lib/java_cup.jar"/>
+    <pathelement location="${basedir}/lib/polyglot.jar"/>
+    <pathelement location="${basedir}/lib/soot-trunk.jar"/>
+    <pathelement location="${basedir}/lib/sootclasses-2.5.0.jar"/>
+    <pathelement location="${basedir}/lib/sootclasses-trunk.jar"/>
+  </path>
+  
+  <!-- Modules -->
+  
+  
+  <!-- Module driver-android -->
+  
+  <dirname property="module.driver-android.basedir" file="${ant.file}"/>
+  
+  
+  
+  <property name="compiler.args.driver-android" value="-encoding UTF-8 -source 8 -target 8 ${compiler.args}"/>
+  
+  <property name="driver-android.output.dir" value="${module.driver-android.basedir}/out/production/driver-android"/>
+  <property name="driver-android.testoutput.dir" value="${module.driver-android.basedir}/out/test/driver-android"/>
+  
+  <path id="driver-android.module.bootclasspath">
+    <!-- Paths to be included in compilation bootclasspath -->
+  </path>
+  
+  <path id="driver-android.module.production.classpath">
+    <path refid="library.lib.classpath"/>
+    <path refid="library.gson-2.6.3.classpath"/>
+  </path>
+  
+  <path id="driver-android.runtime.production.module.classpath">
+    <pathelement location="${driver-android.output.dir}"/>
+    <path refid="library.lib.classpath"/>
+    <path refid="library.gson-2.6.3.classpath"/>
+  </path>
+  
+  <path id="driver-android.module.classpath">
+    <pathelement location="${driver-android.output.dir}"/>
+    <path refid="library.lib.classpath"/>
+    <path refid="library.gson-2.6.3.classpath"/>
+  </path>
+  
+  <path id="driver-android.runtime.module.classpath">
+    <pathelement location="${driver-android.testoutput.dir}"/>
+    <pathelement location="${driver-android.output.dir}"/>
+    <path refid="library.lib.classpath"/>
+    <path refid="library.gson-2.6.3.classpath"/>
+  </path>
+  
+  
+  <patternset id="excluded.from.module.driver-android">
+    <patternset refid="ignored.files"/>
+  </patternset>
+  
+  <patternset id="excluded.from.compilation.driver-android">
+    <patternset refid="excluded.from.module.driver-android"/>
+  </patternset>
+  
+  <path id="driver-android.module.sourcepath">
+    <dirset dir="${module.driver-android.basedir}">
+      <include name="src"/>
+    </dirset>
+  </path>
+  
+  
+  <target name="compile.module.driver-android" depends="compile.module.driver-android.production,compile.module.driver-android.tests" description="Compile module driver-android"/>
+  
+  <target name="compile.module.driver-android.production" description="Compile module driver-android; production classes">
+    <mkdir dir="${driver-android.output.dir}"/>
+    <javac destdir="${driver-android.output.dir}" debug="${compiler.debug}" nowarn="${compiler.generate.no.warnings}" memorymaximumsize="${compiler.max.memory}" fork="true">
+      <compilerarg line="${compiler.args.driver-android}"/>
+      <bootclasspath refid="driver-android.module.bootclasspath"/>
+      <classpath refid="driver-android.module.production.classpath"/>
+      <src refid="driver-android.module.sourcepath"/>
+      <patternset refid="excluded.from.compilation.driver-android"/>
     </javac>
-	<touch file="${basesrc}/.build" />
-  </target>
-
-  <!-- =========================================== -->
-  <!-- Run the main driver                         -->
-  <!-- =========================================== -->
-  <target name="run" 
-	  depends="compile">
-    <java classname="driver.Driver"
-          classpathref="classpath.core"
-	  failonerror="true" 
-	  fork="true">
-    <arg value="${arg1}"/>
-    <arg value="${arg2}"/>
-    <arg value="${arg3}"/>
-    </java> 
-  </target> 
-
-  <!-- ========================================== -->
-  <!-- Cleanup                                    -->
-  <!-- ========================================== -->
-  <target name="clean">
-    <delete>
-      <fileset dir="${basebin}">
-        <exclude name="**/*.jar"/>
+    
+    <copy todir="${driver-android.output.dir}">
+      <fileset dir="${module.driver-android.basedir}/src">
+        <patternset refid="compiler.resources"/>
+        <type type="file"/>
       </fileset>
-      <fileset dir="${basesrc}">
-	    <include name=".build" />
-	  </fileset>
-    </delete>
+    </copy>
   </target>
-
-   <!-- ========================================== -->
-   <!-- Build the source code distribution (TODO)  -->
-   <!-- ========================================== -->	
-  <target name="dist" depends="clean,compile">
+  
+  <target name="compile.module.driver-android.tests" depends="compile.module.driver-android.production" description="compile module driver-android; test classes" unless="skip.tests"/>
+  
+  <target name="clean.module.driver-android" description="cleanup module">
+    <delete dir="${driver-android.output.dir}"/>
+    <delete dir="${driver-android.testoutput.dir}"/>
   </target>
-
+  
+  <target name="init" description="Build initialization">
+    <!-- Perform any build initialization in this target -->
+  </target>
+  
+  <target name="clean" depends="clean.module.driver-android, clean.artifact.driver-android:jar" description="cleanup all"/>
+  
+  <target name="build.modules" depends="init, clean, compile.module.driver-android" description="build all modules"/>
+  
+  <target name="init.artifacts">
+    <property name="artifacts.temp.dir" value="${basedir}/__artifacts_temp"/>
+    <property name="artifact.output.driver-android:jar" value="${basedir}/out/artifacts/driver_android_jar"/>
+    <mkdir dir="${artifacts.temp.dir}"/>
+    <property name="temp.jar.path.driver-android.jar" value="${artifacts.temp.dir}/driver-android.jar"/>
+  </target>
+  
+  <target name="clean.artifact.driver-android:jar" description="clean driver-android:jar artifact output">
+    <delete dir="${artifact.output.driver-android:jar}"/>
+  </target>
+  
+  <target name="artifact.driver-android:jar" depends="init.artifacts, compile.module.driver-android" description="Build &#39;driver-android:jar&#39; artifact">
+    <mkdir dir="${artifact.output.driver-android:jar}"/>
+    <jar destfile="${temp.jar.path.driver-android.jar}" duplicate="preserve" filesetmanifest="merge">
+      <zipfileset dir="${driver-android.output.dir}"/>
+    </jar>
+    <copy file="${temp.jar.path.driver-android.jar}" tofile="${artifact.output.driver-android:jar}/driver-android.jar"/>
+    <copy file="${basedir}/lib/gson-2.6.3.jar" tofile="${artifact.output.driver-android:jar}/gson-2.6.3.jar"/>
+    <copy file="${basedir}/lib/android-support-v4.jar" tofile="${artifact.output.driver-android:jar}/android-support-v4.jar"/>
+    <copy file="${basedir}/lib/java_cup.jar" tofile="${artifact.output.driver-android:jar}/java_cup.jar"/>
+    <copy file="${basedir}/lib/android.jar" tofile="${artifact.output.driver-android:jar}/android.jar"/>
+    <copy file="${basedir}/lib/polyglot.jar" tofile="${artifact.output.driver-android:jar}/polyglot.jar"/>
+    <copy file="${basedir}/lib/soot-trunk.jar" tofile="${artifact.output.driver-android:jar}/soot-trunk.jar"/>
+    <copy file="${basedir}/lib/jasminclasses-2.5.0.jar" tofile="${artifact.output.driver-android:jar}/jasminclasses-2.5.0.jar"/>
+    <copy file="${basedir}/lib/sootclasses-2.5.0.jar" tofile="${artifact.output.driver-android:jar}/sootclasses-2.5.0.jar"/>
+    <copy file="${basedir}/lib/sootclasses-trunk.jar" tofile="${artifact.output.driver-android:jar}/sootclasses-trunk.jar"/>
+  </target>
+  
+  <target name="build.all.artifacts" depends="artifact.driver-android:jar" description="Build all artifacts">
+    
+    <!-- Delete temporary files -->
+    <delete dir="${artifacts.temp.dir}"/>
+  </target>
+  
+  <target name="all" depends="build.modules, build.all.artifacts" description="build all"/>
 </project>
-
