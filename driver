@@ -17,4 +17,4 @@ export androidcp=$SALENTO_ANDROID_HOME/lib/android.jar
 export androidcp=$androidcp:$SALENTOANDROID_HOME/lib/android-support-v4.jar
 
 sootargs="-cp $sootcp:$androidcp:$1 -allow-phantom-refs -keep-line-number"
-java -ea -Xss50m -cp $sootcp:$SALENTO_ANDROID_HOME/classes driver.Driver $sootargs -process-dir $1 ${*:2}
+java -ea -Xss50m -cp $sootcp:$SALENTO_ANDROID_HOME/out/production/driver-android driver.Driver $sootargs -process-dir $1 ${*:2}
