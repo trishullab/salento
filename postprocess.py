@@ -1,5 +1,6 @@
 import argparse
 import itertools
+import math
 import numpy as np
 
 def main():
@@ -12,8 +13,10 @@ def main():
            help='outfile for plotting all KLDs on a heat map, drawing a cutoff line if --topk is used')
     argparser.add_argument('--compare', type=str, default=None,
                        help='compare with the given kld.out')
+    argparser.add_argument('--hexes', action='store_true',
+                       help='print the hex colors of the KLDs into a file')
     args = argparser.parse_args()
-    if args.topk is None and args.plot is None and args.compare is None:
+    if args.topk is None and args.plot is None and args.compare is None and not args.hexes:
         argparser.error('Provide at least one option')
 
     print(args)
@@ -27,6 +30,20 @@ def main():
     if args.compare is not None:
         klds2 = read_klds(args.compare)
         do_compare(klds, klds2)
+    if args.hexes:
+        do_hexes(klds)
+
+def do_hexes(klds):
+    from matplotlib.colors import PowerNorm, rgb2hex
+    from matplotlib.cm import ScalarMappable
+    klds = to_dict(klds)
+    for pack in klds:
+        m = ScalarMappable(norm=PowerNorm(math.e, vmin=0), cmap='OrRd')
+        loc, k = zip(*sorted(klds[pack].items(), key=lambda x:x[1], reverse=True))
+        hexes = [rgb2hex(c) for c in m.to_rgba(k)]
+        print("### " + pack)
+        for i, l in enumerate(loc):
+            print('  {:35s} : {:.2f} : {:7s}'.format(l, klds[pack][l], hexes[i]))
 
 def do_plot(klds, plotfile, cutoff):
     import matplotlib.pyplot as plt
