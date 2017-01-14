@@ -143,6 +143,9 @@ public class SequenceExtractor extends BodyTransformer
         }
 
         SootMethod method = body.getMethod();
+        String clsName = method.getDeclaringClass().getName();
+        if (clsName.startsWith("android.") || clsName.startsWith("com.google."))
+            return;
 
         if (Options.obeyAndroidEntryPoints && ! Util.isAndroidEntryPoint(method))
             return;

@@ -19,9 +19,11 @@ public final class Util {
             String mth = entryPoint.substring(entryPoint.lastIndexOf('.')+1);
 
             SootClass c = m.getDeclaringClass();
-
             if (isDescendant(c, cls) && m.getName().equals(mth))
                 return true;
+            for (SootClass i : m.getDeclaringClass().getInterfaces())
+                if ((i.getName().equals(cls) || isDescendant(i, cls)) && m.getName().equals(mth))
+                    return true;
         }
         return false;
     }

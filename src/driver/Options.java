@@ -130,5 +130,8 @@ public final class Options
             "android.app.Activity.onStop",
             "android.app.Activity.onTitleChanged",
             "android.app.Activity.onUserLeaveHint",
+
+            /* Google maps */
+            "com.google.android.gms.maps.OnMapReadyCallback.onMapReady",
         };
 }
