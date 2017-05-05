@@ -133,5 +133,6 @@ public final class Options
 
             /* Google maps */
             "com.google.android.gms.maps.OnMapReadyCallback.onMapReady",
+            "com.google.android.gms.maps.OnMapClickListener.onMapClick",
         };
 }

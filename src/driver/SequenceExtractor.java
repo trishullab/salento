@@ -311,7 +311,7 @@ public class SequenceExtractor extends BodyTransformer
         
         TypeStateObject t = null;
         for (TypeStateObject t1 : tos)
-            if (!t1.getHistory().isFinalized() && t1.getObject().equals(v)) {
+            if (!t1.getHistory().isFinalized() && t1.getObject().getType().equals(v.getType())) {
                 t = t1;
                 break;
             }
