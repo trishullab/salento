@@ -60,7 +60,7 @@ def train(args):
     
     # check compatibility if training is continued from previously saved model
     if args.init_from is not None:
-        ckpt = check_compat(args, data_loader)
+        ckpt = tf.train.get_checkpoint_state(args.init_from)
         
     with open(os.path.join(args.save_dir, 'config.pkl'), 'wb') as f:
         pickle.dump(args, f)
@@ -103,29 +103,6 @@ def train(args):
     end_t = datetime.datetime.now()
     print('Training ends at {}'.format(end_t))
     print('Training time: {}'.format(end_t - start_t))
-
-def check_compat(args, data_loader):
-    # check if all necessary files exist 
-    assert os.path.isdir(args.init_from)," %s must be a a path" % args.init_from
-    assert os.path.isfile(os.path.join(args.init_from,"config.pkl")),"config.pkl file does not exist in path %s"%args.init_from
-    assert os.path.isfile(os.path.join(args.init_from,"chars_vocab.pkl")),"chars_vocab.pkl.pkl file does not exist in path %s" % args.init_from
-    ckpt = tf.train.get_checkpoint_state(args.init_from)
-    assert ckpt,"No checkpoint found"
-    assert ckpt.model_checkpoint_path,"No model path found in checkpoint"
-
-    # open old config and check if models are compatible
-    with open(os.path.join(args.init_from, 'config.pkl'), 'rb') as f:
-        saved_model_args = pickle.load(f)
-    need_be_same=["rnn_size","seq_length"]
-    for checkme in need_be_same:
-        assert vars(saved_model_args)[checkme]==vars(args)[checkme],"Command line argument and saved model disagree on '%s' "%checkme
-    
-    # open saved vocab/dict and check if vocabs/dicts are compatible
-    with open(os.path.join(args.init_from, 'chars_vocab.pkl'), 'rb') as f:
-        saved_chars, saved_vocab = pickle.load(f)
-    assert saved_chars==data_loader.chars, "Data and loaded model disagree on character set!"
-    assert saved_vocab==data_loader.vocab, "Data and loaded model disagree on dictionary mappings!"
-    return ckpt
 
 if __name__ == '__main__':
     main()

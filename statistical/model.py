@@ -15,7 +15,6 @@ import tensorflow as tf
 from tensorflow.python.ops import rnn_cell
 from tensorflow.python.ops import seq2seq
 
-from utils import weighted_pick
 from cells import TopicRNNCell, TopicLSTMCell
 import decoder
 import numpy as np
@@ -75,5 +74,5 @@ class Model():
             [probs, state] = sess.run([self.probs, self.final_state], feed)
 
         dist = probs[0]
-        prediction = chars[weighted_pick(dist)]
+        prediction = chars[np.random.choice(range(len(dist)), p=dist)]
         return dist, prediction

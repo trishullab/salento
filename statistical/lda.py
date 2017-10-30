@@ -19,7 +19,6 @@ import argparse
 import itertools
 import numpy as np
 from time import time
-from utils import weighted_pick
 from collections import OrderedDict
 
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
@@ -179,7 +178,7 @@ class LDA():
         word_topic_dist = np.array([doc_topic_dist[i] * self.model.components_[i, w]
                             for i in range(self.model.n_topics)])
         word_topic_dist /= word_topic_dist.sum()
-        sampled = [weighted_pick(word_topic_dist) for i in range(count)]
+        sampled = [np.random.choice(range(len(word_topic_dist)), p=word_topic_dist) for i in range(count)]
         return sampled
 
 if __name__ == '__main__':
