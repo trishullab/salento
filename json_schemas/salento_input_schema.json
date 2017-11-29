@@ -1,0 +1,56 @@
+{
+    "title": "Sampled API behaviors from a corpus",
+    "type": "object",
+    "properties": {
+        "packages": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "description": "API behaviors sampled from an appropriate unit, like project or procedure",
+                "properties": {
+                    "data":  { 
+                        "type": "array", 
+                        "items": {
+                            "type": "object", 
+                            "description": "Representation of a sequence of API calls", 
+                            "properties": {
+                                "sequence": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object", 
+                                        "description": "Representation of a single API call", 
+                                        "properties": {
+                                            "call": {
+                                                "type": "string", 
+                                                "description": "Unique API identifier describing the function being called"
+                                            }, 
+                                            "states": {
+                                                "type": "array", 
+                                                "description": "Boolean vector abstracting program state at this call site", 
+                                                "items": {
+                                                    "enum": [0, 1]
+                                                }
+                                            }, 
+                                            "location": {
+                                                "type": "string",
+                                                "description": "Program location of the call site"
+                                            }
+                                        }, 
+                                        "required": ["call", "states", "location"]
+                                    }
+                                }
+                            }, 
+                            "required": ["sequence"]
+                        }
+                    },
+                    "name": {
+                        "type": "string",
+                        "description": "Name of the unit, e.g, project name or procedure name"
+                    }
+                }, 
+                "required": ["data", "name"]
+            }
+        }
+    }, 
+    "required": ["packages"]
+}
