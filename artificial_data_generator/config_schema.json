@@ -1,0 +1,80 @@
+{
+    "title": "Configuration JSON for Salento Data Generation", 
+    "type": "object", 
+    "properties": {
+        "pattern": {
+            "type": "string", 
+            "description": "Primary pattern generated",
+            "enum": ["(ab)*", "(ab)*-mixed", "mixed-match"]
+        }, 
+        "ab_pairs": {
+            "type": "array", 
+            "description": "List of two-item lists, each inner list giving an ab-pair",
+            "items": {
+                "type": "array", 
+                "items": {
+                    "type": "string"
+                }
+            }
+        }, 
+        "num_pairs_range": {
+            "type": "array", 
+            "description": "List of two numbers giving (min, max) number of pairs to draw from within the same unit: this controls the size of topics in theory",
+            "items": {
+                "type": "number"
+            }
+        },
+        "reps_in_seq_range": {
+            "type": "array", 
+            "description": "List of two numbers giving (min, max) pattern repetitions in each sequence", 
+            "items": {
+                "type": "number"
+            }
+        }, 
+        "seq_in_unit_range": {
+            "type": "array",
+            "description": "List of two numbers giving (min, max) number of sequences in each unit", 
+            "items": {
+                "type": "number"
+            }
+        }, 
+        "num_units": {
+            "type": "number", 
+            "description": "Number of units in the data set"
+        }, 
+        "add_noise": {
+            "type": "boolean", 
+            "description": "Should the data set contain noise?"
+        }, 
+        "noise_alphabets": {
+            "type": "array", 
+            "description": "List of strings, each of which is an acceptable noise element in a sequence", 
+            "items": {
+                "type": "string"
+            }
+        }, 
+        "noise_range": {
+            "type": "array", 
+            "description": "List of two numbers giving (min, max) number of noise elements in a sequence", 
+            "items": {
+                "type": "number"
+            }
+        }, 
+        "add_anomaly": {
+            "type": "boolean", 
+            "description": "Should the data set contain anomalies?"
+        }, 
+        "num_anomalies": {
+            "type": "number", 
+            "description": "Number of anomalies to add to the data set"
+        }
+    }, 
+    "required": ["pattern", 
+                 "ab_pairs", 
+                 "num_pairs_range", 
+                 "reps_in_seq_range", 
+                 "seq_in_unit_range",
+                 "num_units",
+                 "add_noise", 
+                 "add_anomaly"]
+}

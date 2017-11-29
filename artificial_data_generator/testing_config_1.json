@@ -1,0 +1,11 @@
+{
+    "pattern": "(ab)*", 
+    "ab_pairs": [["a", "b"], ["c", "d"], ["e", "f"], ["g", "h"]], 
+    "num_pairs_range": [2, 2], 
+    "reps_in_seq_range": [3, 6], 
+    "seq_in_unit_range": [10, 20], 
+    "num_units": 100, 
+    "add_noise": false, 
+    "add_anomaly": true, 
+    "num_anomalies": 2
+}

@@ -1,0 +1,14 @@
+{
+    "pattern": "mixed-match", 
+    "ab_pairs": [["a", "b"], ["c", "d"], ["e", "f"], ["g", "h"], 
+                        ["i", "j"], ["k", "l"], ["m", "n"], ["o", "p"], 
+                        ["q", "r"], ["s", "t"]], 
+    "num_pairs_range": [1, 2],
+    "reps_in_seq_range": [3, 6], 
+    "seq_in_unit_range": [10, 20], 
+    "num_units": 60, 
+    "add_noise": false,
+    "add_anomaly": true,
+    "num_anomalies": 1
+}
+
