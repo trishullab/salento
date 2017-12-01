@@ -15,7 +15,7 @@ To train a Salento model on a data file, say `DATA.json`:
 export PYTHONPATH=$PYTHONPATH:/path/to/salento/src/main/python
 ```
 
-2. Ensure that the data is in the right JSON format using the schema file `json_schemas/salento_input_schema.json`.
+2. Ensure that the data is in the right JSON format using the schema file `doc/json_schemas/salento_input_schema.json`.
 
 3. Extract evidences from the data:
 ```
