@@ -20,6 +20,10 @@ from salento.aggregators.base import Aggregator
 
 class SimpleSequenceAggregator(Aggregator):
 
+    """
+    The simple sequence aggregator computes, for each sequence, the negative
+    log-likelihood of the sequence by combining the LLH of each call in the sequence.
+    """
     def __init__(self, data_file, model_dir):
         Aggregator.__init__(self, data_file, model_dir)
 
