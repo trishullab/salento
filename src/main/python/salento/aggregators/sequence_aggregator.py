@@ -22,7 +22,7 @@ class SimpleSequenceAggregator(Aggregator):
 
     """
     The simple sequence aggregator computes, for each sequence, the negative
-    log-likelihood of the sequence by combining the LLH of each call in the sequence.
+    log-likelihood of the sequence using only its calls (not states).
     """
     def __init__(self, data_file, model_dir):
         Aggregator.__init__(self, data_file, model_dir)
@@ -32,11 +32,11 @@ class SimpleSequenceAggregator(Aggregator):
             print('Package {}----'.format(k))
             spec = self.get_latent_specification(package)
             for j, sequence in enumerate(self.sequences(package)):
-                invocations = self.invocations(sequence)
+                events = self.events(sequence)
                 llh = 0.
-                for i, invocation in enumerate(invocations):
-                    llh += math.log(self.distribution_next_call(spec, invocations[:i], call=invocation['call']))
-                llh += math.log(self.distribution_next_call(spec, invocations, call=self.END_OF_SEQUENCE_MARKER))
+                for i, event in enumerate(events):
+                    llh += math.log(self.distribution_next_call(spec, events[:i], call=self.call(event)))
+                llh += math.log(self.distribution_next_call(spec, events, call=self.END_MARKER))
                 print('{:4d} : {:.4f}'.format(j, -llh), flush=True)
 
 

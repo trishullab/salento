@@ -32,7 +32,7 @@ class Aggregator(object):
         """
         self._data_file = data_file
         self._model_dir = model_dir
-        self.END_OF_SEQUENCE_MARKER = 'STOP'
+        self.END_MARKER = 'STOP'
 
     def __enter__(self):
         print('Loading model...', end='', flush=True)
@@ -49,6 +49,8 @@ class Aggregator(object):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.sess.close()
+
+    # Methods to query the model
 
     def get_latent_specification(self, evidences):
         """
@@ -85,7 +87,8 @@ class Aggregator(object):
         if state is None:
             return dist
         idx = len(sequence[-1]['states'])  # get how many states are in last call
-        return dist['{}#{}'.format(idx, state)]
+        state = '{}#{}'.format(idx, state) if not state == self.END_MARKER else state
+        return dist[state]
 
     def sample_from_dist(self, dist):
         """
@@ -130,6 +133,15 @@ class Aggregator(object):
             raise ValueError('Improper state predicted by model: {}'.format(prediction))
         return prediction
 
+    # Methods for working with the data file
+
+    def locations(self, package):
+        """
+        Get the list of all unique locations in a given package
+        """
+        locations = [self.location(event) for sequence in self.sequences(package) for event in self.events(sequence)]
+        return list(set(locations))
+
     def packages(self):
         """
         Get a list of packages in the dataset
@@ -142,15 +154,45 @@ class Aggregator(object):
         """
         return package['data']
 
-    def invocations(self, sequence):
+    def events(self, sequence):
         """
-        Get the list of invocations in the given sequence
+        Get the list of events in the given sequence
         """
         return sequence['sequence']
 
+    def call(self, event):
+        """
+        Get the call in the given event
+        """
+        return event['call']
+
+    def states(self, event):
+        """
+        Get the states in the given event
+        """
+        return event['states']
+
+    def location(self, event):
+        """
+        Get the location of the given event
+        """
+        return event['location']
+
+    # General utility methods
+
+    def sample(self, stuff, nsamples=1):
+        """
+        Randomly sample elements from a list of stuff
+        :return: list of nsamples samples from stuff (if nsamples is 1, just one sample)
+        """
+        samples = [random.choice(stuff) for _ in range(nsamples)] if nsamples > 1 else random.choice(stuff)
+        return samples
+
+    # Methods to be overridden
+
     def run(self):
         """
-        Run the aggregator (should be overridden in subclasses)
+        Run the aggregator
         :return: anything, depending on the application of the aggregator
         """
         raise NotImplementedError('run() has not been implemented.')

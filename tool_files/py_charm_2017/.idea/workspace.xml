@@ -2,11 +2,10 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="5afe886f-c42f-4bc4-906e-27762b8d2a33" name="Default" comment="">
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/../../src/main/python/salento/aggregators/__init__.py" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/../../src/main/python/salento/aggregators/base.py" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/../../src/main/python/salento/aggregators/sequence_aggregator.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/../../src/main/python/salento/models/low_level_evidences/evidence.py" afterPath="$PROJECT_DIR$/../../src/main/python/salento/models/low_level_evidences/evidence.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/../../src/main/python/salento/models/low_level_evidences/infer.py" afterPath="$PROJECT_DIR$/../../src/main/python/salento/models/low_level_evidences/infer.py" />
+      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/../../src/main/python/salento/aggregators/kld_aggregator.py" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/../../src/main/python/salento/aggregators/base.py" afterPath="$PROJECT_DIR$/../../src/main/python/salento/aggregators/base.py" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/../../src/main/python/salento/aggregators/sequence_aggregator.py" afterPath="$PROJECT_DIR$/../../src/main/python/salento/aggregators/sequence_aggregator.py" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="TRACKING_ENABLED" value="true" />
@@ -20,7 +19,7 @@
       <file leaf-file-name="architecture.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/../../src/main/python/salento/models/low_level_evidences/architecture.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="1424">
+            <state relative-caret-position="713">
               <caret line="89" column="0" lean-forward="false" selection-start-line="89" selection-start-column="0" selection-end-line="89" selection-end-column="0" />
               <folding>
                 <element signature="e#579#602#0" expanded="true" />
@@ -32,20 +31,8 @@
       <file leaf-file-name="data_reader.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/../../src/main/python/salento/models/low_level_evidences/data_reader.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="1664">
+            <state relative-caret-position="816">
               <caret line="104" column="0" lean-forward="false" selection-start-line="104" selection-start-column="0" selection-end-line="104" selection-end-column="0" />
-              <folding>
-                <element signature="e#579#616#0" expanded="true" />
-              </folding>
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file leaf-file-name="evidence_extractor.py" pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/../../src/main/python/scripts/evidence_extractor.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="560">
-              <caret line="35" column="32" lean-forward="false" selection-start-line="35" selection-start-column="32" selection-end-line="35" selection-end-column="32" />
               <folding>
                 <element signature="e#579#616#0" expanded="true" />
               </folding>
@@ -68,20 +55,8 @@
       <file leaf-file-name="base.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/../../src/main/python/salento/aggregators/base.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="14">
-              <caret line="61" column="0" lean-forward="true" selection-start-line="61" selection-start-column="0" selection-end-line="61" selection-end-column="0" />
-              <folding>
-                <element signature="e#579#616#0" expanded="true" />
-              </folding>
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file leaf-file-name="sequence_aggregator.py" pinned="false" current-in-tab="true">
-        <entry file="file://$PROJECT_DIR$/../../src/main/python/salento/aggregators/sequence_aggregator.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="576">
-              <caret line="36" column="0" lean-forward="false" selection-start-line="36" selection-start-column="0" selection-end-line="36" selection-end-column="0" />
+            <state relative-caret-position="394">
+              <caret line="89" column="0" lean-forward="false" selection-start-line="89" selection-start-column="0" selection-end-line="89" selection-end-column="0" />
               <folding>
                 <element signature="e#579#616#0" expanded="true" />
               </folding>
@@ -92,7 +67,7 @@
       <file leaf-file-name="evidence.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/../../src/main/python/salento/models/low_level_evidences/evidence.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="522">
+            <state relative-caret-position="881">
               <caret line="118" column="19" lean-forward="false" selection-start-line="118" selection-start-column="19" selection-end-line="118" selection-end-column="19" />
               <folding>
                 <element signature="e#579#602#0" expanded="true" />
@@ -101,13 +76,49 @@
           </provider>
         </entry>
       </file>
+      <file leaf-file-name="sequence_aggregator.py" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/../../src/main/python/salento/aggregators/sequence_aggregator.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="178">
+              <caret line="24" column="3" lean-forward="false" selection-start-line="24" selection-start-column="3" selection-end-line="24" selection-end-column="3" />
+              <folding>
+                <element signature="e#579#616#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="kld_aggregator.py" pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/../../src/main/python/salento/aggregators/kld_aggregator.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="480">
+              <caret line="30" column="4" lean-forward="false" selection-start-line="30" selection-start-column="4" selection-end-line="30" selection-end-column="4" />
+              <folding>
+                <element signature="e#579#616#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
       <file leaf-file-name="model.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/../../src/main/python/salento/models/low_level_evidences/model.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="393">
-              <caret line="94" column="54" lean-forward="false" selection-start-line="94" selection-start-column="54" selection-end-line="94" selection-end-column="54" />
+            <state relative-caret-position="241">
+              <caret line="35" column="0" lean-forward="true" selection-start-line="35" selection-start-column="0" selection-end-line="35" selection-end-column="0" />
               <folding>
                 <element signature="e#579#602#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="train.py" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/../../src/main/python/salento/models/low_level_evidences/train.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="1453">
+              <caret line="137" column="0" lean-forward="false" selection-start-line="137" selection-start-column="0" selection-end-line="137" selection-end-column="0" />
+              <folding>
+                <element signature="e#579#616#0" expanded="true" />
               </folding>
             </state>
           </provider>
@@ -120,18 +131,6 @@
               <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
               <folding>
                 <marker date="1511911378607" expanded="true" signature="357:418" ph="{&quot;units&quot;: 64...}" />
-              </folding>
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file leaf-file-name="train.py" pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/../../src/main/python/salento/models/low_level_evidences/train.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="304">
-              <caret line="137" column="0" lean-forward="false" selection-start-line="137" selection-start-column="0" selection-end-line="137" selection-end-column="0" />
-              <folding>
-                <element signature="e#579#616#0" expanded="true" />
               </folding>
             </state>
           </provider>
@@ -164,6 +163,10 @@
         <option value="$PROJECT_DIR$/../../src/main/python/scripts/evidence_extractor.py" />
         <option value="$PROJECT_DIR$/../../src/main/python/salento/models/low_level_evidences/data_reader.py" />
         <option value="$PROJECT_DIR$/../../src/main/python/salento/models/low_level_evidences/infer.py" />
+        <option value="$PROJECT_DIR$/../../src/main/python/salento/aggregators/kld.py" />
+        <option value="$PROJECT_DIR$/../../src/main/python/salento/aggregators/sequence_aggregator.py" />
+        <option value="$PROJECT_DIR$/../../src/main/python/salento/aggregators/base.py" />
+        <option value="$PROJECT_DIR$/../../src/main/python/salento/aggregators/kld_aggregator.py" />
       </list>
     </option>
   </component>
@@ -335,16 +338,6 @@
     <watches-manager />
   </component>
   <component name="editorHistoryManager">
-    <entry file="file://$PROJECT_DIR$/../../src/main/python/salento/aggregators/base.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="512">
-          <caret line="32" column="7" lean-forward="false" selection-start-line="32" selection-start-column="7" selection-end-line="32" selection-end-column="7" />
-          <folding>
-            <element signature="e#579#616#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/../../src/main/python/salento/models/core/save/.gitignore" />
     <entry file="file://$PROJECT_DIR$/../../src/main/python/salento/models/low_level_evidences/save/.gitignore">
       <provider selected="true" editor-type-id="text-editor">
@@ -493,6 +486,7 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="320">
           <caret line="29" column="4" lean-forward="false" selection-start-line="29" selection-start-column="4" selection-end-line="29" selection-end-column="4" />
+          <folding />
         </state>
       </provider>
     </entry>
@@ -618,6 +612,7 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="320">
           <caret line="29" column="4" lean-forward="false" selection-start-line="29" selection-start-column="4" selection-end-line="29" selection-end-column="4" />
+          <folding />
         </state>
       </provider>
     </entry>
@@ -636,44 +631,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/../../src/main/python/salento/models/low_level_evidences/config.json">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="320">
-          <caret line="20" column="28" lean-forward="false" selection-start-line="20" selection-start-column="28" selection-end-line="20" selection-end-column="28" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/../../src/main/python/salento/models/low_level_evidences/train.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="304">
-          <caret line="137" column="0" lean-forward="false" selection-start-line="137" selection-start-column="0" selection-end-line="137" selection-end-column="0" />
-          <folding>
-            <element signature="e#579#616#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/../../src/main/python/salento/models/low_level_evidences/evidence.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="522">
-          <caret line="118" column="19" lean-forward="false" selection-start-line="118" selection-start-column="19" selection-end-line="118" selection-end-column="19" />
-          <folding>
-            <element signature="e#579#602#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/../../src/main/python/salento/models/low_level_evidences/architecture.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1424">
-          <caret line="89" column="0" lean-forward="false" selection-start-line="89" selection-start-column="0" selection-end-line="89" selection-end-column="0" />
-          <folding>
-            <element signature="e#579#602#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/../../src/main/python/scripts/evidence_extractor.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="560">
@@ -681,6 +638,14 @@
           <folding>
             <element signature="e#579#616#0" expanded="true" />
           </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/../../src/main/python/salento/models/low_level_evidences/config.json">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="320">
+          <caret line="20" column="28" lean-forward="false" selection-start-line="20" selection-start-column="28" selection-end-line="20" selection-end-column="28" />
+          <folding />
         </state>
       </provider>
     </entry>
@@ -694,20 +659,10 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/../../src/main/python/salento/models/low_level_evidences/data_reader.py">
+    <entry file="file://$PROJECT_DIR$/../../src/main/python/salento/models/low_level_evidences/train.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1664">
-          <caret line="104" column="0" lean-forward="false" selection-start-line="104" selection-start-column="0" selection-end-line="104" selection-end-column="0" />
-          <folding>
-            <element signature="e#579#616#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/../../src/main/python/salento/models/low_level_evidences/infer.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="58">
-          <caret line="36" column="8" lean-forward="false" selection-start-line="36" selection-start-column="8" selection-end-line="36" selection-end-column="8" />
+        <state relative-caret-position="1453">
+          <caret line="137" column="0" lean-forward="false" selection-start-line="137" selection-start-column="0" selection-end-line="137" selection-end-column="0" />
           <folding>
             <element signature="e#579#616#0" expanded="true" />
           </folding>
@@ -716,18 +671,48 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/../../src/main/python/salento/models/low_level_evidences/model.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="393">
-          <caret line="94" column="54" lean-forward="false" selection-start-line="94" selection-start-column="54" selection-end-line="94" selection-end-column="54" />
+        <state relative-caret-position="241">
+          <caret line="35" column="0" lean-forward="true" selection-start-line="35" selection-start-column="0" selection-end-line="35" selection-end-column="0" />
           <folding>
             <element signature="e#579#602#0" expanded="true" />
           </folding>
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/../../src/main/python/salento/aggregators/base.py">
+    <entry file="file://$PROJECT_DIR$/../../src/main/python/salento/models/low_level_evidences/architecture.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="14">
-          <caret line="61" column="0" lean-forward="true" selection-start-line="61" selection-start-column="0" selection-end-line="61" selection-end-column="0" />
+        <state relative-caret-position="713">
+          <caret line="89" column="0" lean-forward="false" selection-start-line="89" selection-start-column="0" selection-end-line="89" selection-end-column="0" />
+          <folding>
+            <element signature="e#579#602#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/../../src/main/python/salento/models/low_level_evidences/data_reader.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="816">
+          <caret line="104" column="0" lean-forward="false" selection-start-line="104" selection-start-column="0" selection-end-line="104" selection-end-column="0" />
+          <folding>
+            <element signature="e#579#616#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/../../src/main/python/salento/models/low_level_evidences/evidence.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="881">
+          <caret line="118" column="19" lean-forward="false" selection-start-line="118" selection-start-column="19" selection-end-line="118" selection-end-column="19" />
+          <folding>
+            <element signature="e#579#602#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/../../src/main/python/salento/models/low_level_evidences/infer.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="58">
+          <caret line="36" column="8" lean-forward="false" selection-start-line="36" selection-start-column="8" selection-end-line="36" selection-end-column="8" />
           <folding>
             <element signature="e#579#616#0" expanded="true" />
           </folding>
@@ -736,8 +721,28 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/../../src/main/python/salento/aggregators/sequence_aggregator.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="576">
-          <caret line="36" column="0" lean-forward="false" selection-start-line="36" selection-start-column="0" selection-end-line="36" selection-end-column="0" />
+        <state relative-caret-position="178">
+          <caret line="24" column="3" lean-forward="false" selection-start-line="24" selection-start-column="3" selection-end-line="24" selection-end-column="3" />
+          <folding>
+            <element signature="e#579#616#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/../../src/main/python/salento/aggregators/base.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="394">
+          <caret line="89" column="0" lean-forward="false" selection-start-line="89" selection-start-column="0" selection-end-line="89" selection-end-column="0" />
+          <folding>
+            <element signature="e#579#616#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/../../src/main/python/salento/aggregators/kld_aggregator.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="480">
+          <caret line="30" column="4" lean-forward="false" selection-start-line="30" selection-start-column="4" selection-end-line="30" selection-end-column="4" />
           <folding>
             <element signature="e#579#616#0" expanded="true" />
           </folding>
