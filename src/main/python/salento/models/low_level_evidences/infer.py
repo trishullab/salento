@@ -35,14 +35,13 @@ class BayesianPredictor(object):
         self.model = Model(config, True)
 
         # restore the saved model
-        tf.global_variables_initializer().run()
+        self.sess.run(tf.global_variables_initializer())
         saver = tf.train.Saver(tf.global_variables())
         ckpt = tf.train.get_checkpoint_state(save)
         saver.restore(self.sess, ckpt.model_checkpoint_path)
 
     # step can be 'call' or 'state', depending on if you are looking for distribution over the next call/state
-    def infer_step(self, evidences, sequence, step='call'):
-        psi = self.psi_from_evidence(evidences)
+    def infer_step(self, psi, sequence, step='call'):
         seq = [('START', CHILD_EDGE)] + [(call['call'], SIBLING_EDGE) for call in sequence[:-1]]
 
         if len(sequence) > 0:

@@ -117,10 +117,3 @@ class APICalls(Evidence):
         loss = 0.5 * (config.latent_size * tf.log(2 * np.pi * sigma_sq + 1e-10)
                       + tf.square(encoding - psi) / sigma_sq)
         return loss
-
-    @staticmethod
-    def from_call(call):
-        call = re.sub('^\$.*\$', '', call)  # get rid of predicates
-        split = call.split('(')[0].split('.')
-        cls, name = split[-2:]
-        return [name] if not cls == name else []
