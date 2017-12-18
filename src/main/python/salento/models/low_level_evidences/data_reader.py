@@ -21,6 +21,22 @@ from itertools import chain
 
 from salento.models.low_level_evidences.utils import CHILD_EDGE, SIBLING_EDGE
 
+import bz2
+import lzma
+import gzip
+import os.path
+
+LOADERS = {
+    ".bz2": bz2.open,
+    ".xz": lzma.open,
+    ".lzma": lzma.open,
+    ".gz": gzip.open,
+    ".gzip": gzip.open,
+}
+
+def smart_open(filename, *args, **kwargs):
+    return LOADERS.get(os.path.splitext(filename)[1], open)(filename, *args, **kwargs)
+
 
 class Reader():
     def __init__(self, clargs, config):
@@ -80,7 +96,7 @@ class Reader():
         return pv + ph
 
     def read_data(self, filename):
-        with open(filename) as f:
+        with smart_open(filename) as f:
             js = json.load(f)
         data_points = []
         ignored, done = 0, 0
