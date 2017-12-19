@@ -64,6 +64,7 @@ class KLDAggregator(Aggregator):
         seqs_l = []
         for sequence in sequences:
             events = self.events(sequence)
+            if len(events) == 0: continue # skip empty sequence
             last_event = events[-1]
             if self.location(last_event) == location:
                 seqs_l.append(sequence)
@@ -74,6 +75,7 @@ class KLDAggregator(Aggregator):
             print('Package {}----'.format(k))
             spec = self.get_latent_specification(package)
             sequences = self.sequences(package)
+            if len(sequences) == 0: continue # Skip empty sequences
             for location in self.locations(package):
                 seqs_l = self.sequences_ending_at(sequences, location)
                 kld_score = self.compute_kld(spec, seqs_l)

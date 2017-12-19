@@ -158,7 +158,8 @@ class Aggregator(object):
         """
         Get the list of events in the given sequence
         """
-        return sequence['sequence']
+        vocabs = self.model.model.config.decoder.vocab
+        return [x for x in sequence['sequence'] if x['call'] in vocabs]
 
     def call(self, event):
         """
