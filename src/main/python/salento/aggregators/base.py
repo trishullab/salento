@@ -18,6 +18,7 @@ import tensorflow as tf
 import random
 
 from salento.models.low_level_evidences.infer import BayesianPredictor
+from salento.models.low_level_evidences.data_reader import smart_open
 
 
 class Aggregator(object):
@@ -41,7 +42,7 @@ class Aggregator(object):
         print('done')
 
         print('Loading data...', end='', flush=True)
-        with open(self._data_file) as f:
+        with smart_open(self._data_file, "rt") as f:
             self.dataset = json.load(f)
         print('done')
 
