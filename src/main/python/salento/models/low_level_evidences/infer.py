@@ -40,10 +40,8 @@ class BayesianPredictor(object):
         ckpt = tf.train.get_checkpoint_state(save)
         saver.restore(self.sess, ckpt.model_checkpoint_path)
 
-    # step can be 'call' or 'state', depending on if you are looking for distribution over the next call/state
-    def infer_step(self, psi, sequence, step='call'):
+    def _sequence_to_graph(self, sequence, step='call'):
         seq = [('START', CHILD_EDGE)] + [(call['call'], SIBLING_EDGE) for call in sequence[:-1]]
-
         if len(sequence) > 0:
             if step == 'call':
                 seq.append((sequence[-1]['call'], SIBLING_EDGE))
@@ -54,8 +52,20 @@ class BayesianPredictor(object):
             else:
                 raise ValueError('invalid step: {}'.format(step))
 
-        nodes, edges = zip(*seq)
+        return zip(*seq)
+
+    # step can be 'call' or 'state', depending on if you are looking for distribution over the next call/state
+    def infer_step(self, psi, sequence, step='call'):
+        nodes, edges = self._sequence_to_graph(sequence, step)
         dist = self.model.infer_seq(self.sess, psi, nodes, edges)
+        return self._create_distribution(dist)
+
+    def infer_step_iter(self, psi, sequence, step='call', cache=None):
+        nodes, edges = self._sequence_to_graph(sequence=sequence, step=step)
+        for node, edge, dist in self.model.infer_seq_iter(self.sess, psi, nodes, edges, cache):
+            yield node, self._create_distribution(dist)
+
+    def _create_distribution(self, dist):
         return {self.model.config.decoder.chars[i]: dist[i] for i in range(len(dist))}
 
     def psi_random(self):

@@ -87,18 +87,39 @@ class Model():
         # use the given psi and get decoder's start state
         state = sess.run(self.initial_state, {self.psi: psi})
         state = [state] * self.config.decoder.num_layers
-
+        dist = {}
         # run the decoder for every time step
         for node, edge in zip(nodes, edges):
+            dist, state = self._infer_seq_step(sess, state, node, edge)
+        return dist
+
+    def infer_seq_iter(self, sess, psi, nodes, edges, cache=None):
+        # use the given psi and get decoder's start state
+        state = sess.run(self.initial_state, {self.psi: psi})
+        state = [state] * self.config.decoder.num_layers
+
+        # run the decoder for every time step
+        path = ""
+        for node, edge in zip(nodes, edges):
             assert edge == CHILD_EDGE or edge == SIBLING_EDGE, 'invalid edge: {}'.format(edge)
+            if cache is not None:
+                path += "/{}/{}".format(node, edge)
+            if cache is not None and path in cache:
+                dist, state = cache[path]
+            else:
+                dist, state = self._infer_seq_step(sess, state, node, edge)
+                if cache is not None:
+                    cache[path] = (dist, state)
+            yield node, edge, dist
+
+    def _infer_seq_step(self, sess, state, node, edge):
             n = np.array([self.config.decoder.vocab[node]], dtype=np.int32)
             e = np.array([edge == CHILD_EDGE], dtype=np.bool)
-
             feed = {self.decoder.nodes[0].name: n,
                     self.decoder.edges[0].name: e}
             for i in range(self.config.decoder.num_layers):
                 feed[self.decoder.initial_state[i].name] = state[i]
-            [probs, state] = sess.run([self.probs, self.decoder.state], feed)
+            (probs, state) = sess.run([self.probs, self.decoder.state], feed)
+            return probs[0], state
 
-        dist = probs[0]
-        return dist
+

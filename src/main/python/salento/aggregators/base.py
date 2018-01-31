@@ -73,6 +73,16 @@ class Aggregator(object):
         dist = self.model.infer_step(spec, sequence, step='call')
         return dist if call is None else dist[call]
 
+    def distribution_call_iter(self, spec, sequence, cache=None):
+        """
+        Get a distribution over the next call in a sequence
+        :param spec: the latent spec, get it from get_latent_specification
+        :param sequence: the sequence
+        :param call: if given, return the probability of this call instead of the whole distribution
+        :return: distribution over the next call, or if call is given, probability of the call
+        """
+        return self.model.infer_step_iter(spec, sequence, cache=cache)
+
     def distribution_next_state(self, spec, sequence, state=None):
         """
         Get a distribution over the next state of the last call in a sequence

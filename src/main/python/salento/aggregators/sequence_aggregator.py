@@ -16,7 +16,7 @@ from __future__ import print_function
 import math
 import argparse
 from salento.aggregators.base import Aggregator
-
+import numpy as np
 
 class SimpleSequenceAggregator(Aggregator):
 
@@ -26,6 +26,22 @@ class SimpleSequenceAggregator(Aggregator):
     """
     def __init__(self, data_file, model_dir):
         Aggregator.__init__(self, data_file, model_dir)
+        self.cache = {}
+
+    def call_dist(self, spec, events):
+        for (i, (_, dist)) in enumerate(self.distribution_call_iter(spec, events, cache=self.cache)):
+            if i == len(events):
+                next_call = self.END_MARKER
+            else:
+                next_call = events[i]['call']
+            yield dist.get(next_call, 0.0)
+
+    def sequence_likelihood(self, spec, events):
+        row = np.fromiter(self.call_dist(spec, events), dtype=np.float64)
+        # Apply log to each element
+        np.log(row, out=row)
+        # Summate all elements
+        return -np.sum(row)
 
     def run(self):
         for k, package in enumerate(self.packages()):
@@ -33,11 +49,8 @@ class SimpleSequenceAggregator(Aggregator):
             spec = self.get_latent_specification(package)
             for j, sequence in enumerate(self.sequences(package)):
                 events = self.events(sequence)
-                llh = 0.
-                for i, event in enumerate(events):
-                    llh += math.log(self.distribution_next_call(spec, events[:i], call=self.call(event)))
-                llh += math.log(self.distribution_next_call(spec, events, call=self.END_MARKER))
-                print('{:4d} : {:.4f}'.format(j, -llh), flush=True)
+                llh = self.sequence_likelihood(spec, events)
+                print('{:4d} : {:.4f}'.format(j, llh), flush=True)
 
 
 if __name__ == '__main__':
