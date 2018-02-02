@@ -15,10 +15,12 @@
 import tensorflow as tf
 from tensorflow.contrib import legacy_seq2seq as seq2seq
 import numpy as np
+from collections import namedtuple
 
 from salento.models.low_level_evidences.architecture import BayesianEncoder, BayesianDecoder
 from salento.models.low_level_evidences.data_reader import CHILD_EDGE, SIBLING_EDGE
 
+Row = namedtuple('Row', ['node', 'edge', 'distribution', 'state', 'cache_id'])
 
 class Model():
     def __init__(self, config, infer=False):
@@ -83,24 +85,26 @@ class Model():
         psi = sess.run(self.psi, feed)
         return psi
 
-    def infer_seq(self, sess, psi, nodes, edges):
-        # use the given psi and get decoder's start state
-        state = sess.run(self.initial_state, {self.psi: psi})
-        state = [state] * self.config.decoder.num_layers
+    def infer_seq(self, sess, psi, seq, cache=None, resume=None):
         dist = {}
-        # run the decoder for every time step
-        for node, edge in zip(nodes, edges):
-            dist, state = self._infer_seq_step(sess, state, node, edge)
+        path = ""
+        for step in self.infer_seq_iter(sess, psi, seq, cache, resume):
+            dist = step.distribution
+            path = step.cache_id
         return dist
 
-    def infer_seq_iter(self, sess, psi, nodes, edges, cache=None):
-        # use the given psi and get decoder's start state
-        state = sess.run(self.initial_state, {self.psi: psi})
-        state = [state] * self.config.decoder.num_layers
+    def infer_seq_iter(self, sess, psi, seq, cache=None, resume=None):
+        if resume is None:
+            # use the given psi and get decoder's start state
+            state = sess.run(self.initial_state, {self.psi: psi})
+            state = [state] * self.config.decoder.num_layers
+            path = ""
+        else:
+            state = resume.state
+            path = resume.cache_id
+            #print(path, seq)
 
-        # run the decoder for every time step
-        path = ""
-        for node, edge in zip(nodes, edges):
+        for node, edge in seq:
             assert edge == CHILD_EDGE or edge == SIBLING_EDGE, 'invalid edge: {}'.format(edge)
             if cache is not None:
                 path += "/{}/{}".format(node, edge)
@@ -110,7 +114,7 @@ class Model():
                 dist, state = self._infer_seq_step(sess, state, node, edge)
                 if cache is not None:
                     cache[path] = (dist, state)
-            yield node, edge, dist
+            yield Row(node=node, edge=edge, distribution=dist, state=state, cache_id=path)
 
     def _infer_seq_step(self, sess, state, node, edge):
             n = np.array([self.config.decoder.vocab[node]], dtype=np.int32)

@@ -23,6 +23,22 @@ from salento.models.low_level_evidences.model import Model
 from salento.models.low_level_evidences.utils import CHILD_EDGE, SIBLING_EDGE
 from salento.models.low_level_evidences.utils import read_config
 
+from collections import namedtuple    
+
+Row = namedtuple('Row', ['call', 'states', 'distribution', 'next_state'])
+
+def event_states(call):
+    for i, elem in enumerate(call['states']):
+        key = '{}#{}'.format(i, elem)
+        yield key
+
+def _next_state(event):
+    yield (event['call'], CHILD_EDGE)
+    for key in event_states(event):
+        yield (key, SIBLING_EDGE)
+
+def _next_call(event):
+    return (event['call'], SIBLING_EDGE)
 
 class BayesianPredictor(object):
 
@@ -41,31 +57,47 @@ class BayesianPredictor(object):
         saver.restore(self.sess, ckpt.model_checkpoint_path)
 
     def _sequence_to_graph(self, sequence, step='call'):
-        seq = [('START', CHILD_EDGE)] + [(call['call'], SIBLING_EDGE) for call in sequence[:-1]]
+        seq = [('START', CHILD_EDGE)] + [_next_call(call) for call in sequence[:-1]]
         if len(sequence) > 0:
             if step == 'call':
-                seq.append((sequence[-1]['call'], SIBLING_EDGE))
+                seq.append(_next_call(sequence[-1]))
             elif step == 'state':
-                seq.append((sequence[-1]['call'], CHILD_EDGE))
-                for i, state in enumerate(sequence[-1]['states']):
-                    seq.append(('{}#{}'.format(i, state), SIBLING_EDGE))
+                seq.extend(_next_state(sequence[-1]))
             else:
                 raise ValueError('invalid step: {}'.format(step))
-
-        return zip(*seq)
+        return seq
 
     # step can be 'call' or 'state', depending on if you are looking for distribution over the next call/state
-    def infer_step(self, psi, sequence, step='call'):
-        nodes, edges = self._sequence_to_graph(sequence, step)
-        dist = self.model.infer_seq(self.sess, psi, nodes, edges)
+    def infer_step(self, psi, sequence, step='call', cache=None):
+        seq = self._sequence_to_graph(sequence, step)
+        dist = self.model.infer_seq(self.sess, psi, seq, cache=cache)
         return self._create_distribution(dist)
 
     def infer_step_iter(self, psi, sequence, step='call', cache=None):
-        nodes, edges = self._sequence_to_graph(sequence=sequence, step=step)
-        for node, edge, dist in self.model.infer_seq_iter(self.sess, psi, nodes, edges, cache):
-            yield node, self._create_distribution(dist)
+        seq = self._sequence_to_graph(sequence=sequence, step='call')
+        states = []
+        for idx, row in enumerate(self.model.infer_seq_iter(self.sess, psi, seq, cache=cache)):
+            yield Row(
+                    call=row.node,
+                    states=states,
+                    distribution=self._create_distribution(row.distribution),
+                    next_state=lambda: self._create_distribution(self.model.infer_seq(self.sess, psi, _next_state(sequence[idx]), cache, resume=row))
+                )
 
-    def _create_distribution(self, dist):
+            if step == 'state' and idx < len(sequence):
+                call = sequence[idx]
+                new_seq = list(_next_state(call))
+                state_keys = list(event_states(call))
+                dists = self.model.infer_seq_iter(self.sess, psi, new_seq, cache=cache, resume=row)
+                tmp_states = []
+                last_dist = {}
+                for (key, row) in zip(state_keys + [None], dists):
+                    if key is not None:
+                        states.append(row.distribution[self.model.config.decoder.vocab[key]])
+            else:
+                states = []
+
+    def _create_distribution(self, dist,):
         return {self.model.config.decoder.chars[i]: dist[i] for i in range(len(dist))}
 
     def psi_random(self):

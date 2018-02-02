@@ -29,12 +29,12 @@ class SimpleSequenceAggregator(Aggregator):
         self.cache = {}
 
     def call_dist(self, spec, events):
-        for (i, (_, dist)) in enumerate(self.distribution_call_iter(spec, events, cache=self.cache)):
+        for (i, row) in enumerate(self.distribution_call_iter(spec, events, cache=self.cache)):
             if i == len(events):
                 next_call = self.END_MARKER
             else:
                 next_call = events[i]['call']
-            yield dist.get(next_call, 0.0)
+            yield row.distribution.get(next_call, 0.0)
 
     def sequence_likelihood(self, spec, events):
         row = np.fromiter(self.call_dist(spec, events), dtype=np.float64)

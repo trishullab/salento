@@ -17,7 +17,7 @@ import json
 import tensorflow as tf
 import random
 
-from salento.models.low_level_evidences.infer import BayesianPredictor
+from salento.models.low_level_evidences.infer import BayesianPredictor, event_states
 from salento.models.low_level_evidences.data_reader import smart_open
 
 
@@ -62,7 +62,7 @@ class Aggregator(object):
         spec = self.model.psi_from_evidence(evidences)
         return spec
 
-    def distribution_next_call(self, spec, sequence, call=None):
+    def distribution_next_call(self, spec, sequence, call=None, cache=None):
         """
         Get a distribution over the next call in a sequence
         :param spec: the latent spec, get it from get_latent_specification
@@ -70,20 +70,30 @@ class Aggregator(object):
         :param call: if given, return the probability of this call instead of the whole distribution
         :return: distribution over the next call, or if call is given, probability of the call
         """
-        dist = self.model.infer_step(spec, sequence, step='call')
+        dist = self.model.infer_step(spec, sequence, step='call', cache=cache)
         return dist if call is None else dist[call]
 
     def distribution_call_iter(self, spec, sequence, cache=None):
         """
-        Get a distribution over the next call in a sequence
+        Get a distribution over the a sequence of calls
         :param spec: the latent spec, get it from get_latent_specification
         :param sequence: the sequence
         :param call: if given, return the probability of this call instead of the whole distribution
-        :return: distribution over the next call, or if call is given, probability of the call
+        :return: an iterator that yields at each point the distribution of the next calls
         """
-        return self.model.infer_step_iter(spec, sequence, cache=cache)
+        return self.model.infer_step_iter(spec, sequence, step='call', cache=cache)
 
-    def distribution_next_state(self, spec, sequence, state=None):
+    def distribution_state_iter(self, spec, sequence, cache=None):
+        """
+        Get a distribution over the a sequence of calls plus the state of each call
+        :param spec: the latent spec, get it from get_latent_specification
+        :param sequence: the sequence
+        :param call: if given, return the probability of this call instead of the whole distribution
+        :return: an iterator that yields at each point the distribution of the next calls
+        """
+        return self.model.infer_step_iter(spec, sequence, step='state', cache=cache)
+
+    def distribution_next_state(self, spec, sequence, state=None, cache=None):
         """
         Get a distribution over the next state of the last call in a sequence
         :param spec: the latent spec, get it from get_latent_specification
@@ -94,7 +104,7 @@ class Aggregator(object):
         """
         if len(sequence) == 0:
             raise ValueError('Sequence cannot be empty when querying next state')
-        dist = self.model.infer_step(spec, sequence, step='state')
+        dist = self.model.infer_step(spec, sequence, step='state', cache=cache)
         if state is None:
             return dist
         idx = len(sequence[-1]['states'])  # get how many states are in last call
@@ -165,12 +175,23 @@ class Aggregator(object):
         """
         return package['data']
 
-    def events(self, sequence):
-        """
-        Get the list of events in the given sequence
-        """
+    def _well_formed(self, event, check_states=True):
         vocabs = self.model.model.config.decoder.vocab
-        return [x for x in sequence['sequence'] if x['call'] in vocabs]
+        if self.call(event) not in vocabs:
+            return False
+        if check_states:
+            for e in event_states(event):
+                if e not in vocabs:
+                    return False
+        return True
+
+    def events(self, sequence, check_states=True):
+        """
+        Get the list of events in the given sequence. Filters out
+        any call that is unknown
+        :param check_states: if True then filters out unknown states as well
+        """
+        return [x for x in sequence['sequence'] if self._well_formed(x)]
 
     def call(self, event):
         """
@@ -208,3 +229,5 @@ class Aggregator(object):
         :return: anything, depending on the application of the aggregator
         """
         raise NotImplementedError('run() has not been implemented.')
+
+

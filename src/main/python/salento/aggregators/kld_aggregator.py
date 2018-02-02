@@ -17,7 +17,6 @@ import math
 import argparse
 from salento.aggregators.base import Aggregator
 
-
 class KLDAggregator(Aggregator):
 
     """
@@ -32,19 +31,23 @@ class KLDAggregator(Aggregator):
 
     def __init__(self, data_file, model_dir):
         Aggregator.__init__(self, data_file, model_dir)
+        self.cache = {}
 
     def log_likelihood(self, spec, sequence):
         llh = 0.
         events = self.events(sequence)
-        for i, event in enumerate(events):
-            call = self.call(event)
-            llh += math.log(self.distribution_next_call(spec, events[:i], call=call))
-            partial_event = {'call': call, 'states': []}
-            for state in self.states(event):
-                llh += math.log(self.distribution_next_state(spec, events[:i] + [partial_event], state=state))
-                partial_event['states'].append(state)
-            llh += math.log(self.distribution_next_state(spec, events[:i+1], state=self.END_MARKER))
-        llh += math.log(self.distribution_next_call(spec, events, call=self.END_MARKER))
+        calls = list(s['call'] for s in events)
+        calls.append(self.END_MARKER)
+        
+        for (row, next_call) in zip(self.distribution_state_iter(spec, events, cache=self.cache), calls):
+            llh += math.log(row.distribution[next_call])
+            for prob in row.states:
+                llh += math.log(prob)
+
+            if next_call != self.END_MARKER:
+                dist = row.next_state()
+                llh += math.log(dist[self.END_MARKER])
+
         return llh
 
     def compute_kld(self, spec, sequences):
@@ -64,6 +67,7 @@ class KLDAggregator(Aggregator):
         seqs_l = []
         for sequence in sequences:
             events = self.events(sequence)
+            
             if len(events) == 0: continue # skip empty sequence
             last_event = events[-1]
             if self.location(last_event) == location:
