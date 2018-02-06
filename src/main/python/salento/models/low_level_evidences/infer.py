@@ -40,6 +40,39 @@ def _next_state(event):
 def _next_call(event):
     return (event['call'], SIBLING_EDGE)
 
+class VectorMapping:
+    def __init__(self, data, id_to_term, term_to_id):
+        self.data = data
+        self.id_to_term = id_to_term
+        self.term_to_id = term_to_id
+
+    def keys(self):
+        return self.term_to_id.keys()
+
+    def __iter__(self):
+        return iter(self.keys())
+
+    def __contains__(self, key):
+        return key in self.term_to_id
+
+    def get(self, key, default=None):
+        if key in self:
+            return self[key]
+        else:
+            return default
+
+    def items(self):
+        return ((self.id_to_term[i], self.data[i]) for i in range(len(self.data)))
+
+    def __getitem__(self, key):
+        return self.data[self.term_to_id[key]]
+
+    def __len__(self):
+        return len(self.data)
+
+    def __repr__(self):
+        return repr(dict(self.items()))
+
 class BayesianPredictor(object):
 
     def __init__(self, save, sess):
@@ -98,7 +131,7 @@ class BayesianPredictor(object):
                 states = []
 
     def _create_distribution(self, dist,):
-        return {self.model.config.decoder.chars[i]: dist[i] for i in range(len(dist))}
+        return VectorMapping(dist, self.model.config.decoder.chars, self.model.config.decoder.vocab)
 
     def psi_random(self):
         return np.random.normal(size=[1, self.model.config.latent_size])
