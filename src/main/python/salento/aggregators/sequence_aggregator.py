@@ -17,6 +17,8 @@ import math
 import argparse
 from salento.aggregators.base import Aggregator
 import numpy as np
+import itertools
+from operator import itemgetter
 
 class SimpleSequenceAggregator(Aggregator):
 
@@ -43,14 +45,21 @@ class SimpleSequenceAggregator(Aggregator):
         # Summate all elements
         return -np.sum(row)
 
+    def sequences_ending_at(self, sequences):
+        elems_by_loc = ((self.location(self.events(seq)[-1]), seq)
+            for seq in sequences if len(self.events(seq)) > 0)
+        elems = itertools.groupby(sorted(elems_by_loc, key=itemgetter(0)), itemgetter(0))
+        for location, row in elems:
+            yield location, map(itemgetter(1), row)
+
     def run(self):
         for k, package in enumerate(self.packages()):
             print('Package {}----'.format(k))
             spec = self.get_latent_specification(package)
-            for j, sequence in enumerate(self.sequences(package)):
-                events = self.events(sequence)
-                llh = self.sequence_likelihood(spec, events)
-                print('{:4d} : {:.4f}'.format(j, llh), flush=True)
+            sequences = self.sequences(package)
+            for location, seqs_l in self.sequences_ending_at(sequences):
+                score = max(self.sequence_likelihood(spec, self.events(seq)) for seq in seqs_l)
+                print('{:50s} : {:.4f}'.format(location, score), flush=True)
 
 
 if __name__ == '__main__':
