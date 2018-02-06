@@ -16,6 +16,8 @@ from __future__ import print_function
 import math
 import argparse
 from salento.aggregators.base import Aggregator
+import itertools
+from operator import itemgetter
 
 class KLDAggregator(Aggregator):
 
@@ -63,26 +65,20 @@ class KLDAggregator(Aggregator):
             kld += p * (log_p - log_q)
         return kld
 
-    def sequences_ending_at(self, sequences, location):
-        seqs_l = []
-        for sequence in sequences:
-            events = self.events(sequence)
-            
-            if len(events) == 0: continue # skip empty sequence
-            last_event = events[-1]
-            if self.location(last_event) == location:
-                seqs_l.append(sequence)
-        return seqs_l
+    def sequences_ending_at(self, sequences):
+        elems_by_loc = ((self.location(self.events(seq)[-1]), seq)
+            for seq in sequences if len(self.events(seq)) > 0)
+        elems = itertools.groupby(sorted(elems_by_loc, key=itemgetter(0)), itemgetter(0))
+        for location, row in elems:
+            yield location, map(itemgetter(1), row)
 
     def run(self):
         for k, package in enumerate(self.packages()):
             print('Package {}----'.format(k))
             spec = self.get_latent_specification(package)
             sequences = self.sequences(package)
-            if len(sequences) == 0: continue # Skip empty sequences
-            for location in self.locations(package):
-                seqs_l = self.sequences_ending_at(sequences, location)
-                kld_score = self.compute_kld(spec, seqs_l)
+            for location, seqs_l in self.sequences_ending_at(sequences):
+                kld_score = self.compute_kld(spec, list(seqs_l))
                 print('{:50s} : {:.4f}'.format(location, kld_score), flush=True)
 
 
