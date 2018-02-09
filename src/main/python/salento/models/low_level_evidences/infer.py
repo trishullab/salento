@@ -110,23 +110,24 @@ class BayesianPredictor(object):
         seq = self._sequence_to_graph(sequence=sequence, step='call')
         states = []
         for idx, row in enumerate(self.model.infer_seq_iter(self.sess, psi, seq, cache=cache)):
+            def next_state():
+                dist = self.model.infer_seq(self.sess, psi, _next_state(sequence[idx]), cache, resume=row)
+                return self._create_distribution(dist)
             yield Row(
                     call=row.node,
                     states=states,
                     distribution=self._create_distribution(row.distribution),
-                    next_state=lambda: self._create_distribution(self.model.infer_seq(self.sess, psi, _next_state(sequence[idx]), cache, resume=row))
+                    next_state=next_state,
                 )
 
             if step == 'state' and idx < len(sequence):
                 call = sequence[idx]
                 new_seq = list(_next_state(call))
-                state_keys = list(event_states(call))
                 dists = self.model.infer_seq_iter(self.sess, psi, new_seq, cache=cache, resume=row)
-                tmp_states = []
-                last_dist = {}
-                for (key, row) in zip(state_keys + [None], dists):
+                vocabs = self.model.config.decoder.vocab
+                for (key, row) in zip(list(event_states(call)) + [None], dists):
                     if key is not None:
-                        states.append(row.distribution[self.model.config.decoder.vocab[key]])
+                        states.append(row.distribution[vocabs[key]])
             else:
                 states = []
 
