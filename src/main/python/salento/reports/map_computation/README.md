@@ -13,7 +13,7 @@ There are four metrics being implemented, which gives user the choice to pick th
 3. [sum_llh] Sum over the log likelihood of probabilities in a sequence
 4. [min_llh] Minimum over the log likelihood of probabilities in a sequence
 
-## Usage
+## Metric Usage
 
 ```python
 
@@ -39,4 +39,36 @@ optional arguments:
                         Write out the results in a file
   --direction {forward,bidirectional}
                         Choose type of combination
+```
+
+## Get probabilities for test data set
+
+We want to apply different metrics on the salento test data. To achieve this we
+want to have a separation of concerns, where the probability scores and the
+metric applications are separated out.
+
+There are two modes to query probabilities
+
+1. Probabilities associated with calls
+2. Probabilities associated with states
+
+## Raw probabilities for the calls
+
+A typical usage is ```python get_raw_call_values.py --data_file  test.json  --model_dir train_model --result_file raw_prob.json```
+
+If the result file is not provided the probability scores is printed to console.
+
+```
+
+usage: get_raw_call_values.py  --data_file DATA_FILE --model_dir MODEL_DIR
+                              [--result_file RESULT_FILE]
+
+optional arguments:
+  --data_file DATA_FILE
+                        input test data file
+  --model_dir MODEL_DIR
+                        directory to load the model from
+  --result_file RESULT_FILE
+                        write out the result in json file
+
 ```
