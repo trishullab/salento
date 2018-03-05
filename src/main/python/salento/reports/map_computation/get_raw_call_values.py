@@ -72,7 +72,7 @@ class RawProbAggregator(Aggregator):
                 for i, event in enumerate(events):
                     call_key = (str(i) + '--' + event['call'])
                     prob_value = float(self.distribution_next_call(
-                        spec, events[:i], call=self.call(event)))
+                        spec, events[:i+1], call=self.call(event)))
                     event_data[call_key] = prob_value
                 event_key = str(j) + '--' + "--".join(x['call'] for x in events)
                 result_data[str(k)][event_key] = event_data
