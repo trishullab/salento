@@ -102,7 +102,6 @@ class Model():
         else:
             state = resume.state
             path = resume.cache_id
-            #print(path, seq)
 
         for node, edge in seq:
             assert edge == CHILD_EDGE or edge == SIBLING_EDGE, 'invalid edge: {}'.format(edge)
