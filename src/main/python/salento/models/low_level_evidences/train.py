@@ -28,6 +28,14 @@ from salento.models.low_level_evidences.data_reader import Reader
 from salento.models.low_level_evidences.model import Model
 from salento.models.low_level_evidences.utils import read_config, dump_config
 
+# Backwards-compatible `mkdir -p`
+def mkdir(fname):
+    try:
+        os.makedirs(fname)
+    except OSError:
+        pass
+
+
 HELP = """\
 Config options should be given as a JSON file (see config.json for example):
 {                                         |
@@ -66,6 +74,8 @@ def train(clargs):
     jsconfig = dump_config(config)
     print(clargs)
     print(json.dumps(jsconfig, indent=2))
+    # Make sure the directory exists
+    mkdir(clargs.save)
     with open(os.path.join(clargs.save, 'config.json'), 'w') as f:
         json.dump(jsconfig, fp=f, indent=2)
 
