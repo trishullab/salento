@@ -17,7 +17,7 @@ export PYTHONPATH=$PYTHONPATH:/path/to/salento/src/main/python
 
 2. Ensure that the data is in the right JSON format using the schema file `doc/json_schemas/salento_input_schema.json`.
 
-3. Extract evidences from the data:
+3. **(Optional.)** Extract evidences from the data:
 ```
 python3 src/main/python/scripts/evidence_extractor.py DATA.json DATA-training.json
 ```

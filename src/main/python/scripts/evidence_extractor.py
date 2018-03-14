@@ -44,11 +44,8 @@ def extract_evidence(clargs):
     done = 0
     programs = []
     for program in js['packages']:
-        sequences = program['data']
-        if len(sequences) > clargs.max_seqs or \
-                any([len(sequence['sequence']) > clargs.max_seq_length for sequence in sequences]):
+        if not evidence.update_apicalls(program, max_seqs=clargs.max_seqs, max_seq_length=clargs.max_seq_length):
             continue
-        program['apicalls'] = list(set([calls['call'] for sequence in sequences for calls in sequence['sequence']]))
         programs.append(program)
         done += 1
         print('Extracted evidence for {} programs'.format(done), end='\r')
