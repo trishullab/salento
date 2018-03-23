@@ -45,12 +45,11 @@ def prefix_all(elem, elems):
     for x in elems:
         yield prefix(elem, x)
 
-def get_seq_path_step(js, idx, accum):
-    if idx == len(js):
+def get_seq_path_step(elem, accum):
+    if accum is None:
         yield [('STOP', SIBLING_EDGE)]
         return
 
-    elem = js[idx]
     call = elem['call']
     yield chain(
         [(call, CHILD_EDGE)],
@@ -61,8 +60,8 @@ def get_seq_path_step(js, idx, accum):
 
 def get_seq_paths(js):
     accum = None
-    for idx in iter(range(len(js), -1, -1)):
-        accum = get_seq_path_step(js, idx, accum)
+    for elem in reversed(js):
+        accum = get_seq_path_step(elem, accum)
     yield from accum
 
 class Reader():
