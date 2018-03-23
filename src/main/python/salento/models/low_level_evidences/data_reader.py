@@ -40,22 +40,27 @@ def smart_open(filename, *args, **kwargs):
 def get_seq_paths(js):
     def get_seq_path_step(elem=None, accum=None):
         if accum is None:
-            yield [('STOP', SIBLING_EDGE)]
-            return
+            return [
+                [('STOP', SIBLING_EDGE)]
+            ]
 
         call = elem['call']
-        yield list(chain(
+        
+        for path in accum:
+            path.insert(0, (call, SIBLING_EDGE))
+
+        accum.insert(0, list(chain(
             [(call, CHILD_EDGE)],
             (('{}#{}'.format(i, state), SIBLING_EDGE) for i, state in enumerate(elem['states'])),
             [('STOP', SIBLING_EDGE)]
-        ))
-        for path in accum:
-            path.insert(0, (call, SIBLING_EDGE))
-            yield path
+        )))
+    
+        return accum
+
     accum = get_seq_path_step()
     for elem in reversed(js):
         accum = get_seq_path_step(elem, accum)
-    yield from accum
+    return accum
 
 class Reader():
     def __init__(self, clargs, config):
@@ -114,7 +119,7 @@ class Reader():
                 continue
             try:
                 evidence = [ev.read_data_point(program) for ev in self.config.evidence]
-                sequences = list(map(list, chain.from_iterable(get_seq_paths(seq['sequence']) for seq in program['data'])))
+                sequences = list(chain.from_iterable(get_seq_paths(seq['sequence']) for seq in program['data']))
                 for sequence in sequences:
                     sequence.insert(0, ('START', CHILD_EDGE))
                     assert len(sequence) <= self.config.decoder.max_seq_length
