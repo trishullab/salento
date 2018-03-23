@@ -37,29 +37,22 @@ LOADERS = {
 def smart_open(filename, *args, **kwargs):
     return LOADERS.get(os.path.splitext(filename)[1], open)(filename, *args, **kwargs)
 
-def prefix(elem, elems):
-    yield elem
-    yield from elems
-
-def prefix_all(elem, elems):
-    for x in elems:
-        yield prefix(elem, x)
-
-def get_seq_path_step(elem, accum):
-    if accum is None:
-        yield [('STOP', SIBLING_EDGE)]
-        return
-
-    call = elem['call']
-    yield chain(
-        [(call, CHILD_EDGE)],
-        (('{}#{}'.format(i, state), SIBLING_EDGE) for i, state in enumerate(elem['states'])),
-        [('STOP', SIBLING_EDGE)]
-    )
-    yield from prefix_all((call, SIBLING_EDGE), accum)
-
 def get_seq_paths(js):
-    accum = None
+    def get_seq_path_step(elem=None, accum=None):
+        if accum is None:
+            yield [('STOP', SIBLING_EDGE)]
+            return
+
+        call = elem['call']
+        yield list(chain(
+            [(call, CHILD_EDGE)],
+            (('{}#{}'.format(i, state), SIBLING_EDGE) for i, state in enumerate(elem['states'])),
+            [('STOP', SIBLING_EDGE)]
+        ))
+        for path in accum:
+            path.insert(0, (call, SIBLING_EDGE))
+            yield path
+    accum = get_seq_path_step()
     for elem in reversed(js):
         accum = get_seq_path_step(elem, accum)
     yield from accum
