@@ -37,6 +37,33 @@ LOADERS = {
 def smart_open(filename, *args, **kwargs):
     return LOADERS.get(os.path.splitext(filename)[1], open)(filename, *args, **kwargs)
 
+def prefix(elem, elems):
+    yield elem
+    yield from elems
+
+def prefix_all(elem, elems):
+    for x in elems:
+        yield prefix(elem, x)
+
+def get_seq_path_step(js, idx, accum):
+    if idx == len(js):
+        yield [('STOP', SIBLING_EDGE)]
+        return
+
+    elem = js[idx]
+    call = elem['call']
+    yield chain(
+        [(call, CHILD_EDGE)],
+        (('{}#{}'.format(i, state), SIBLING_EDGE) for i, state in enumerate(elem['states'])),
+        [('STOP', SIBLING_EDGE)]
+    )
+    yield from prefix_all((call, SIBLING_EDGE), accum)
+
+def get_seq_paths(js):
+    accum = None
+    for idx in iter(range(len(js), -1, -1)):
+        accum = get_seq_path_step(js, idx, accum)
+    yield from accum
 
 class Reader():
     def __init__(self, clargs, config):
@@ -84,17 +111,6 @@ class Reader():
         # reset batches
         self.reset_batches()
 
-    def get_seq_paths(self, js, idx=0):
-        if idx == len(js):
-            return [[('STOP', SIBLING_EDGE)]]
-
-        call = js[idx]['call']
-        pv = [[(call, CHILD_EDGE)] +
-              [('{}#{}'.format(i, state), SIBLING_EDGE) for i, state in enumerate(js[idx]['states'])] +
-              [('STOP', SIBLING_EDGE)]]
-        ph = [[(call, SIBLING_EDGE)] + path for path in self.get_seq_paths(js, idx + 1)]
-        return pv + ph
-
     def read_data(self, filename):
         with smart_open(filename) as f:
             js = json.load(f)
@@ -106,7 +122,7 @@ class Reader():
                 continue
             try:
                 evidence = [ev.read_data_point(program) for ev in self.config.evidence]
-                sequences = list(chain.from_iterable([self.get_seq_paths(seq['sequence']) for seq in program['data']]))
+                sequences = list(map(list, chain.from_iterable(get_seq_paths(seq['sequence']) for seq in program['data'])))
                 for sequence in sequences:
                     sequence.insert(0, ('START', CHILD_EDGE))
                     assert len(sequence) <= self.config.decoder.max_seq_length
