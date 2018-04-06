@@ -28,7 +28,9 @@
 from __future__ import print_function
 import argparse
 import json
+import copy
 from salento.aggregators.base import Aggregator
+
 
 class RawProbAggregator(Aggregator):
     """
@@ -55,60 +57,97 @@ class RawProbAggregator(Aggregator):
         }
     }
     """
+
     def __init__(self, data_file, model_dir):
         Aggregator.__init__(self, data_file, model_dir)
+        self.call_probs = {}
+        self.state_probs = {}
+        self.call_use = False
+        self.state_use = False
+
+    def get_call_prob(self, spec, sequence):
+        event_data = {}
+        for i, event in enumerate(sequence):
+            call_key = (str(i) + '--' + event['call'])
+            prob_value = float(
+                self.distribution_next_call(
+                    spec, sequence, call=self.call(event)))
+            event_data[call_key] = prob_value
+        return event_data
+
+    def get_state_prob(self, spec, sequence):
+        event_data = {}
+        for i, event in enumerate(sequence):
+            call_key = (str(i) + '--' + event['call'])
+            last_call_state = copy.deepcopy(event['states'])
+            sequence[i]["states"] = []
+            for s_i, st in enumerate(last_call_state):
+                val = self.distribution_next_state(spec, sequence[:i+1], st)
+                st_key = call_key + '--' + str(s_i) + "#" + str(st)
+                sequence[i]["states"].append(st)
+                event_data[st_key] = float(val)
+        return event_data
 
     def run(self):
         """
             invoke the RNN to get the probability
-            return combined call and state probability values
         """
-        result_data = {}
         # iterate over units
         for k, package in enumerate(self.packages()):
-            result_data[str(k)] = {}
+            if self.call_use:
+                self.call_probs[str(k)] = {}
+            if self.state_use:
+                self.state_probs[str(k)] = {}
             spec = self.get_latent_specification(package)
             # iterate over sequence
             for j, sequence in enumerate(self.sequences(package)):
                 events = self.events(sequence)
-                seq_calls = "--".join(x['call'] for x in events)
-                event_key = str(j) + '--' + seq_calls
-                event_data = {}
-                # iterate over calls
-                for i, event in enumerate(events):
-                    call_key = (str(i) + '--' + event['call'])
-                    call_prob = float(self.distribution_next_call(
-                        spec, events[:i+1], call=self.call(event)))
-                    # next state probability
-                    dist = self.distribution_next_state(spec, events[:i+1], None)
-                    # use the probability summation rule on conditional
-                    # probability to get a unified probability value
-                    # Pr(Call, States) = Pr(State0| Call)Pr(Call) +
-                    #                    Pr(State1| Call)Pr(Call) +
-                    #                    Pr(State2| Call)Pr(Call)
-                    prob_value = 0
-                    # get the individual states
-                    for key, value in dist.items():
-                        if '#' in key:
-                            prob_value += call_prob*value
-                    event_data[call_key] = prob_value
-                result_data[str(k)][event_key] = event_data
-        return result_data
+                if self.call_use:
+                    self.call_probs[str(k)][str(j)] = self.get_call_prob(
+                        spec, events)
+                if self.state_use:
+                    self.state_probs[str(k)][str(j)] = self.get_state_prob(
+                        spec, events)
+
 
 if __name__ == '__main__':
+
     parser = argparse.ArgumentParser()
-    parser.add_argument('--data_file', type=str, required=True,
-                        help='input data file')
-    parser.add_argument('--model_dir', type=str, required=True,
-                        help='directory to load model from')
-    parser.add_argument('--result_file', type=str, default=None,
-                        help='write out result in json file')
+    parser.add_argument(
+        '--data_file',
+        type=str,
+        required=True,
+        help='input test data file with evidences')
+    parser.add_argument(
+        '--model_dir',
+        type=str,
+        required=True,
+        help='directory to load the model from')
+    parser.add_argument(
+        '--call_prob_file',
+        type=str,
+        default=None,
+        help='Write out the call probability in json file')
+    parser.add_argument(
+        '--state_prob_file',
+        type=str,
+        default=None,
+        help='write out the state probability in json file')
     clargs = parser.parse_args()
 
+    if clargs.call_prob_file is None and clargs.state_prob_file is None:
+        raise AssertionError("Must get call or state probability")
+
     with RawProbAggregator(clargs.data_file, clargs.model_dir) as aggregator:
-        result = aggregator.run()
-    if clargs.result_file:
-        with open(clargs.result_file, 'w') as fwrite:
-            json.dump(result, fwrite)
-    else:
-        print(json.dumps(result))
+        if clargs.call_prob_file:
+            aggregator.call_use = True
+        if clargs.state_prob_file:
+            aggregator.state_use = True
+        aggregator.run()
+
+        if clargs.call_prob_file:
+            with open(clargs.call_prob_file, 'w') as fwrite:
+                json.dump(aggregator.call_probs, fwrite)
+        if clargs.state_prob_file:
+            with open(clargs.state_prob_file, 'w') as fwrite:
+                json.dump(aggregator.state_probs, fwrite)

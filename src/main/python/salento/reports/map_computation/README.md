@@ -52,53 +52,51 @@ There are two modes to query probabilities
 1. Probabilities associated with calls
 2. Probabilities associated with states
 
-## Raw probabilities for the calls and states
+The script `get_raw_prob.py` provides interface to get predicted probabilities
+to get call and states information for each point. To get calls probabilities user should
+pass the filename for  `--call_prob_file` and to gets states probabilities  user should
+pass the filename for `--state_prob_file` and if both are passed then we get probabilities associated with calls and states. 
 
-
-A typical usage is ```python get_state_call_values.py --data_file  test.json  --model_dir train_model --result_file raw_prob.json```
-
-The probabilities of states and calls are combined using the summation rules as given below.
-
-```math
-
-Pr(Call, States) = \sum_{i=0}^{i=n}{Pr(Call| States_i})*Pr(Call)}
-```
-
-where, n is maximum number of states combination available, so for a three stater binary vector, the total number of states = 6.
 
 ```bash
-usage: get_state_call_values.py [-h] --data_file DATA_FILE --model_dir
-                                MODEL_DIR [--result_file RESULT_FILE]
+usage: get_raw_prob.py [-h] --data_file DATA_FILE --model_dir MODEL_DIR
+                       [--call_prob_file CALL_PROB_FILE]
+                       [--state_prob_file STATE_PROB_FILE]
 
 optional arguments:
   -h, --help            show this help message and exit
   --data_file DATA_FILE
-                        input data file
+                        input test data file with evidences
   --model_dir MODEL_DIR
-                        directory to load model from
-  --result_file RESULT_FILE
-                        write out result in json file
-
+                        directory to load the model from
+  --call_prob_file CALL_PROB_FILE
+                        Write out the call probability in json file
+  --state_prob_file STATE_PROB_FILE
+                        write out the state probability in json file
 
 ```
 
-## Raw probabilities for the calls
+#### Json Schema for th output
 
-A typical usage is ```python get_raw_call_values.py --data_file  test.json  --model_dir train_model --result_file raw_prob.json```
-
-If the result file is not provided the probability scores is printed to console.
-
-```bash
-
-usage: get_raw_call_values.py  --data_file DATA_FILE --model_dir MODEL_DIR
-                              [--result_file RESULT_FILE]
-
-optional arguments:
-  --data_file DATA_FILE
-                        input test data file
-  --model_dir MODEL_DIR
-                        directory to load the model from
-  --result_file RESULT_FILE
-                        write out the result in json file
-
+```json
+{
+	"title": "Schema File for representation of the probability values",
+	"type": "object",
+	"properties": {
+		"type": "object",
+		"description": "Each Procedure/Project",
+		"properties": {
+			"type": "object",
+			"description": "Each Sequence in the procedure",
+			"properties": {
+				"type": "object",
+				"description": "Each Call/State",
+				"properties": {
+					"type": "number",
+					"description": "raw probability values"
+				}
+			}
+		}
+	}
+}
 ```
