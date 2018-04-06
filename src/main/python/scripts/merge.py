@@ -28,7 +28,10 @@ def merge(clargs):
     with open(clargs.file_list[0]) as f:
         file_list = f.readlines()
     for filename in file_list:
-        filename = filename[:-1]  # ignore '\n'
+        filename = filename.split("#")[0]  # ignore '\n'
+        filename = filename.strip()
+        if filename == '': continue
+
         try:
             with open(filename) as f:
                 js = json.load(f)
