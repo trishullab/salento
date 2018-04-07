@@ -155,7 +155,7 @@ if __name__ == '__main__':
                         help='set recursion limit for the Python interpreter')
     parser.add_argument('--save', type=str, default='save',
                         help='checkpoint model during training here')
-    parser.add_argument('--config', type=str, default=default_cfg,
+    parser.add_argument('--config', type=str, default=None,
                         help='config file (see description above for help)')
     parser.add_argument('--continue_from', type=str, default=None,
                         help='ignore config options and continue training model checkpointed here')
@@ -164,5 +164,5 @@ if __name__ == '__main__':
     if clargs.config and clargs.continue_from:
         parser.error('Do not provide --config if you are continuing from checkpointed model')
     if not clargs.config and not clargs.continue_from:
-        parser.error('Provide at least one option: --config or --continue_from')
+        clargs.config = default_cfg
     train(clargs)
