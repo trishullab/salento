@@ -29,6 +29,7 @@ from __future__ import print_function
 import argparse
 import json
 import copy
+import os
 from salento.aggregators.base import Aggregator
 
 
@@ -58,14 +59,34 @@ class RawProbAggregator(Aggregator):
     }
     """
 
-    def __init__(self, data_file, model_dir):
+    def __init__(self,
+                 data_file,
+                 model_dir,
+                 call_file=None,
+                 state_file=None,
+                 chunk=False):
+        """
+
+        :param data_file: file with test data
+        :param model_dir: directory where model is saved
+        :param call_file: files to store call probabilities
+        :param state_file: file to store state probabilities
+        :param chunk: chunk files on procedure count
+        """
         Aggregator.__init__(self, data_file, model_dir)
         self.call_probs = {}
         self.state_probs = {}
-        self.call_use = False
-        self.state_use = False
+        self.call_file = call_file
+        self.state_file = state_file
+        self.chunk = chunk
 
     def get_call_prob(self, spec, sequence):
+        """
+        Compute call probability
+        :param spec: latent specification
+        :param sequence: a sequences of events
+        :return: predicted call probabilities
+        """
         event_data = {}
         for i, event in enumerate(sequence):
             call_key = (str(i) + '--' + event['call'])
@@ -76,38 +97,68 @@ class RawProbAggregator(Aggregator):
         return event_data
 
     def get_state_prob(self, spec, sequence):
+        """
+        Compute state probability
+        :param spec: latent specification
+        :param sequence: a sequences of events
+        :return: predicted states probabilities
+        """
         event_data = {}
         for i, event in enumerate(sequence):
             call_key = (str(i) + '--' + event['call'])
             last_call_state = copy.deepcopy(event['states'])
             sequence[i]["states"] = []
             for s_i, st in enumerate(last_call_state):
-                val = self.distribution_next_state(spec, sequence[:i+1], st)
+                val = self.distribution_next_state(spec, sequence[:i + 1], st)
                 st_key = call_key + '--' + str(s_i) + "#" + str(st)
                 sequence[i]["states"].append(st)
                 event_data[st_key] = float(val)
         return event_data
+
+    def write_chunks(self, filename, package_number, data):
+        """
+        write out probabilities in chunks
+        :param filename: state/call filename
+        :param package_number: package number to be prepended to the file
+        :param data: probabilities for every event in the package
+        """
+        chunk_file = os.path.join(os.path.dirname(filename),
+                str(package_number) + '_' + os.path.basename(filename))
+        with open(chunk_file, 'w') as fwrite:
+            json.dump(data, fwrite)
 
     def run(self):
         """
             invoke the RNN to get the probability
         """
         # iterate over units
+        print("Total packages {}".format(len(self.packages())))
         for k, package in enumerate(self.packages()):
-            if self.call_use:
-                self.call_probs[str(k)] = {}
-            if self.state_use:
-                self.state_probs[str(k)] = {}
+            print('Query Probability For Package Number {} '.format(k), end='\r')
+            call_seq_prob = {}
+            state_seq_prob = {}
             spec = self.get_latent_specification(package)
             # iterate over sequence
             for j, sequence in enumerate(self.sequences(package)):
                 events = self.events(sequence)
-                if self.call_use:
-                    self.call_probs[str(k)][str(j)] = self.get_call_prob(
-                        spec, events)
-                if self.state_use:
-                    self.state_probs[str(k)][str(j)] = self.get_state_prob(
-                        spec, events)
+
+                if self.call_file:
+                    call_seq_prob[str(j)] = self.get_call_prob(spec, events)
+                if self.state_file:
+                    state_seq_prob[str(j)] = self.get_state_prob(spec, events)
+            # write chunks
+            if self.chunk:
+                if self.call_file:
+                    self.write_chunks(self.call_file, k, call_seq_prob)
+                if self.state_file:
+                    self.write_chunks(self.state_file, k, state_seq_prob)
+            else:
+                if self.call_file:
+                    self.call_probs[str(k)] = {}
+                    self.call_probs[str(k)].update(call_seq_prob)
+                if self.state_file:
+                    self.state_probs[str(k)] = {}
+                    self.state_probs[str(k)].update(state_seq_prob)
 
 
 if __name__ == '__main__':
@@ -133,21 +184,25 @@ if __name__ == '__main__':
         type=str,
         default=None,
         help='write out the state probability in json file')
+    parser.add_argument(
+        '--chunks',
+        type=bool,
+        default=False,
+        help='write out results per package')
     clargs = parser.parse_args()
 
     if clargs.call_prob_file is None and clargs.state_prob_file is None:
         raise AssertionError("Must get call or state probability")
 
-    with RawProbAggregator(clargs.data_file, clargs.model_dir) as aggregator:
-        if clargs.call_prob_file:
-            aggregator.call_use = True
-        if clargs.state_prob_file:
-            aggregator.state_use = True
+    with RawProbAggregator(clargs.data_file, clargs.model_dir,
+                           clargs.call_prob_file, clargs.state_prob_file,
+                           clargs.chunks) as aggregator:
         aggregator.run()
 
-        if clargs.call_prob_file:
-            with open(clargs.call_prob_file, 'w') as fwrite:
-                json.dump(aggregator.call_probs, fwrite)
-        if clargs.state_prob_file:
-            with open(clargs.state_prob_file, 'w') as fwrite:
-                json.dump(aggregator.state_probs, fwrite)
+        if not clargs.chunks:
+            if clargs.call_prob_file:
+                with open(clargs.call_prob_file, 'w') as fwrite:
+                    json.dump(aggregator.call_probs, fwrite)
+            if clargs.state_prob_file:
+                with open(clargs.state_prob_file, 'w') as fwrite:
+                    json.dump(aggregator.state_probs, fwrite)
