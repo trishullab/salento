@@ -68,11 +68,41 @@ class Evidence(object):
         raise NotImplementedError('evidence_loss() has not been implemented')
 
 
+def _extract_evidence(program):
+    sequences = program['data']
+    return list(set([calls['call'] for sequence in sequences for calls in sequence['sequence']]))
+
+def _valid_apicalls(program, max_seqs=9999, max_seq_length=9999):
+    sequences = program['data']
+
+    if max_seqs >= 0 and len(sequences) > max_seqs:
+        return False
+
+    if max_seq_length >= 0 and any([len(sequence['sequence']) > max_seq_length for sequence in sequences]):
+        return False
+
+    return True
+
+def _get_apicalls(program, max_seqs=9999, max_seq_length=9999, KEY='apicalls', cache=True):
+    if KEY in program:
+        return program[KEY]
+    result = _extract_evidence(program) if _valid_apicalls(program, max_seqs, max_seq_length) else []
+    if cache:
+        program[KEY] = result
+    return result
+
+def update_apicalls(program, max_seqs=9999, max_seqs_length=9999, KEY='apicalls'):
+    if KEY in program:
+        return True
+    if _valid_apicalls(program, max_seq, max_seqs_length):
+        program[KEY] = _extract_evidence(program)
+        return True
+    return False
+
 class APICalls(Evidence):
 
     def read_data_point(self, program):
-        apicalls = program['apicalls'] if 'apicalls' in program else []
-        return list(set(apicalls))
+        return _get_apicalls(program)
 
     def set_chars_vocab(self, data):
         counts = Counter([c for apicalls in data for c in apicalls])

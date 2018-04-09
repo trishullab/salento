@@ -62,9 +62,6 @@ pass the filename for `--state_prob_file` and if both are passed then we get pro
 usage: get_raw_prob.py [-h] --data_file DATA_FILE --model_dir MODEL_DIR
                        [--call_prob_file CALL_PROB_FILE]
                        [--state_prob_file STATE_PROB_FILE]
-
-optional arguments:
-  -h, --help            show this help message and exit
   --data_file DATA_FILE
                         input test data file with evidences
   --model_dir MODEL_DIR
@@ -99,4 +96,6 @@ optional arguments:
 		}
 	}
 }
+
+
 ```

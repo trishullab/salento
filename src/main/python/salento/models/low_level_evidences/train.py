@@ -19,6 +19,7 @@ import tensorflow as tf
 import argparse
 import time
 import os
+import os.path
 import sys
 import json
 import textwrap
@@ -26,6 +27,14 @@ import textwrap
 from salento.models.low_level_evidences.data_reader import Reader
 from salento.models.low_level_evidences.model import Model
 from salento.models.low_level_evidences.utils import read_config, dump_config
+
+# Backwards-compatible `mkdir -p`
+def mkdir(fname):
+    try:
+        os.makedirs(fname)
+    except OSError:
+        pass
+
 
 HELP = """\
 Config options should be given as a JSON file (see config.json for example):
@@ -65,6 +74,8 @@ def train(clargs):
     jsconfig = dump_config(config)
     print(clargs)
     print(json.dumps(jsconfig, indent=2))
+    # Make sure the directory exists
+    mkdir(clargs.save)
     with open(os.path.join(clargs.save, 'config.json'), 'w') as f:
         json.dump(jsconfig, fp=f, indent=2)
 
@@ -135,6 +146,7 @@ def train(clargs):
 
 
 if __name__ == '__main__':
+    default_cfg = os.path.join(os.path.dirname(__file__), 'config.json')
     parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
                                      description=textwrap.dedent(HELP))
     parser.add_argument('input_file', type=str, nargs=1,
@@ -143,7 +155,7 @@ if __name__ == '__main__':
                         help='set recursion limit for the Python interpreter')
     parser.add_argument('--save', type=str, default='save',
                         help='checkpoint model during training here')
-    parser.add_argument('--config', type=str, default=None,
+    parser.add_argument('--config', type=str, default=default_cfg,
                         help='config file (see description above for help)')
     parser.add_argument('--continue_from', type=str, default=None,
                         help='ignore config options and continue training model checkpointed here')
