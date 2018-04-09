@@ -73,8 +73,8 @@ class KLDAggregator(Aggregator):
             yield location, map(itemgetter(1), row)
 
     def run(self):
-        for k, package in enumerate(self.packages()):
-            print('Package {}----'.format(k))
+        for package in self.packages():
+            print('Package: {}'.format(package[name]))
             spec = self.get_latent_specification(package)
             sequences = self.sequences(package)
             for location, seqs_l in self.sequences_ending_at(sequences):
