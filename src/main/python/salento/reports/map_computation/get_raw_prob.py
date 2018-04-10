@@ -122,10 +122,41 @@ class RawProbAggregator(Aggregator):
         :param package_number: package number to be prepended to the file
         :param data: probabilities for every event in the package
         """
-        chunk_file = os.path.join(os.path.dirname(filename),
-                str(package_number) + '_' + os.path.basename(filename))
+        chunk_file = os.path.join(
+            os.path.dirname(filename),
+            str(package_number) + '_' + os.path.basename(filename))
         with open(chunk_file, 'w') as fwrite:
             json.dump(data, fwrite)
+
+    def write_results(self):
+        """
+        Write the results to files passed, if chunks then combine the chunks
+        """
+        if self.chunk:
+            for k in range(len(self.packages())):
+                # update call probs
+                if self.call_file:
+                    chunk_file = os.path.join(
+                        os.path.dirname(self.call_file),
+                        str(k) + '_' + os.path.basename(self.call_file))
+                    self.call_probs[str(k)] = {}
+                    with open(chunk_file, 'r') as fread:
+                        self.call_probs[str(k)].update(json.load(fread))
+                # update state probs
+                if self.state_file:
+                    chunk_file = os.path.join(
+                        os.path.dirname(self.state_file),
+                        str(k) + '_' + os.path.basename(self.state_file))
+                    self.state_probs[str(k)] = {}
+                    with open(chunk_file, 'r') as fread:
+                        self.state_probs[str(k)].update(json.load(fread))
+        # Write out the files
+        if self.call_file:
+            with open(self.call_file, 'w') as fwrite:
+                json.dump(self.call_probs, fwrite)
+        if self.state_file:
+            with open(self.state_file, 'w') as fwrite:
+                json.dump(self.state_probs, fwrite)
 
     def run(self):
         """
@@ -134,7 +165,8 @@ class RawProbAggregator(Aggregator):
         # iterate over units
         print("Total packages {}".format(len(self.packages())))
         for k, package in enumerate(self.packages()):
-            print('Query Probability For Package Number {} '.format(k), end='\r')
+            print(
+                'Query Probability For Package Number {} '.format(k), end='\r')
             call_seq_prob = {}
             state_seq_prob = {}
             spec = self.get_latent_specification(package)
@@ -198,11 +230,4 @@ if __name__ == '__main__':
                            clargs.call_prob_file, clargs.state_prob_file,
                            clargs.chunks) as aggregator:
         aggregator.run()
-
-        if not clargs.chunks:
-            if clargs.call_prob_file:
-                with open(clargs.call_prob_file, 'w') as fwrite:
-                    json.dump(aggregator.call_probs, fwrite)
-            if clargs.state_prob_file:
-                with open(clargs.state_prob_file, 'w') as fwrite:
-                    json.dump(aggregator.state_probs, fwrite)
+        aggregator.write_results()
