@@ -52,6 +52,9 @@ class VectorMapping:
     def __iter__(self):
         return iter(self.keys())
 
+    def values(self):
+        return self.data
+
     def __contains__(self, key):
         return key in self.term_to_id
 
