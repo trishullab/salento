@@ -74,7 +74,7 @@ class KLDAggregator(Aggregator):
 
     def run(self):
         for package in self.packages():
-            print('Package: {}'.format(package[name]))
+            print('Package: {}'.format(package["name"]))
             spec = self.get_latent_specification(package)
             sequences = self.sequences(package)
             for location, seqs_l in self.sequences_ending_at(sequences):
