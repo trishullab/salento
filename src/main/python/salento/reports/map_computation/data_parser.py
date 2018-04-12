@@ -28,38 +28,75 @@
 # Script Purpose : Implement code to parse raw prob data and apply aggregation
 from __future__ import print_function
 import json
-import sys
-# substitute inf with low value
-LOW_PROB = 10e-50
+
 
 class ProcessData(object):
     """ Takes in detailed probability call computes the metrics """
-    def __init__(self, data_file):
-        """ read the data file """
-        with open(data_file, 'r') as fread:
-            self.prob_data = json.load(fread)
+
+    def __init__(self, forward_prob_file, reverse_prob_file=None):
+        """
+        :param forward_prob_file: file with forward probability
+        :param reverse_prob_file: file with reverse probability
+        """
+        self.forward_prob_data = None
+        self.reverse_prob_data = None
+        # read the probability data
+        with open(forward_prob_file, 'r') as fread:
+            self.forward_prob_data = json.load(fread)
+        if reverse_prob_file:
+            with open(reverse_prob_file, 'r') as fread:
+                self.reverse_prob_data = json.load(fread)
+        # stores the sequence vector for reverse data
+        self.reverse_obj = {}
+        # stores the sequence vector for forward  data
+        self.forward_obj = {}
+        # aggregated results  after applying metric
+        self.aggregated_data = {}
+        # call or state events list for the sequence
+        self.event_list = {}
 
     def data_parser(self):
-        """ implement custom data parser that returns
-        a unique sequence key and prob vector associated with it"""
+        """
+        Implement custom data parser that sets the
+        a unique sequence key and prob vector associated with it
+        """
         raise NotImplementedError("Override it!")
 
     def apply_aggregation(self, operator_type):
         """
-            reads the sequence and applies the aggregation function
-            store the result in the self.aggregated_data
-            @operator_type : one of the operators from Metric Option
-            side effect : it creates unique key for each sequence
+        reads the sequence and applies the aggregation function
+        it then store the result in the self.aggregated_data
+        :param operator_type: one of the operators from Metric Option
+        it updates the anomaly for the sequence
         """
-        raise NotImplementedError("Override it!")
+        for seq_key in self.forward_obj:
+            # get the forward prob
+            forward_probs = self.forward_obj[seq_key]
+            # get the reverse prob
+            if self.reverse_prob_data:
+                reverse_probs = self.reverse_obj[seq_key]
+                combined_probability_vector = map(lambda t: min(t[0], t[1]),
+                                                  zip(forward_probs,
+                                                      reverse_probs))
+            else:
+                combined_probability_vector = forward_probs
+            index_list, score = operator_type(combined_probability_vector)
+            self.aggregated_data[seq_key] = {
+                "Anomaly Score": score,
+                "Index List": index_list,
+                "Events": self.event_list[seq_key]
+            }
 
-class ProcessDataImpl(ProcessData):
+
+class ProcessCallData(ProcessData):
     """  Process Data using our notation """
-    def __init__(self, data_file):
-        """ read the data file """
-        ProcessData.__init__(self, data_file)
-        self.forward_obj = {}
-        self.aggregated_data = {}
+
+    def __init__(self, forward_prob_file, reverse_prob_file=None):
+        """
+        :param forward_prob_file: file with forward probability
+        :param reverse_prob_file: file with reverse probability
+        """
+        ProcessData.__init__(self, forward_prob_file, reverse_prob_file)
 
     def data_parser(self):
         """
@@ -67,137 +104,105 @@ class ProcessDataImpl(ProcessData):
             a. unique seq_key
             b. seq_prob
         """
-        for unit_key in self.prob_data:
-            for seq_key in self.prob_data[unit_key]:
-                prob_vector = self.prob_data[unit_key][seq_key].values()
+        for unit_key in self.forward_prob_data:
+            for seq_key in self.forward_prob_data[unit_key]:
+                prob_vector = self.forward_prob_data[unit_key][
+                    seq_key].values()
+                event_vector = self.forward_prob_data[unit_key][seq_key].keys()
                 new_seq_key = "%s--%s" % (str(unit_key), seq_key)
                 self.forward_obj[new_seq_key] = prob_vector
+                self.event_list[new_seq_key] = sorted(
+                    event_vector, key=lambda x: int(x.split('--')[0]))
+        # set the reverse
+        if self.reverse_prob_data:
+            for unit_key in self.reverse_prob_data:
+                for seq_key in self.reverse_prob_data[unit_key]:
+                    # reverse the
+                    new_seq_key = "%s--%s" % (str(unit_key), seq_key)
+                    prob_vector = reversed(
+                        self.reverse_prob_data[unit_key][seq_key].values())
+                    self.reverse_obj[new_seq_key] = prob_vector
+            assert set(self.forward_obj.keys()) == set(self.reverse_obj.keys()), "Incompatible datasets"
 
-    def apply_aggregation(self, operator_type):
-        """
-            reads the sequence and applies the aggregation function
-            it then store the result in the self.aggregated_data
-            @operator_type : one of the operators from Metric Option
-            side effect : it creates unique key for each sequence
-        """
-        for seq_key in self.forward_obj:
-            self.aggregated_data[seq_key] = operator_type(self.forward_obj[seq_key])
 
-class ProcessStates(ProcessData):
+class ProcessStateData(ProcessData):
     """  Process Data using our notation """
-    def __init__(self, data_file):
-        """ read the data file """
-        ProcessData.__init__(self, data_file)
-        self.forward_obj = {}
-        self.aggregated_data = {}
+
+    def __init__(self, forward_prob_file, reverse_prob_file=None):
+        """
+         :param forward_prob_file: file with forward probability
+         :param reverse_prob_file: file with reverse probability
+         """
+        ProcessData.__init__(self, forward_prob_file, reverse_prob_file)
 
     def data_parser(self):
         """
-        Parse the probability data using data parser
-        it update the forward object dictionary with
-        unique seq_key and probability vector associated with sequences
+        Convert the state probabilities into vector for aggregation
+        the reverse converts the index to reverse direction
+        ex,
+        forward ["0--a--0" : 1, "1--b--0" : 2]
+        reverse will be [ "0--b--0" : 2, "1--a--0" : 1]
+        The code endures that reverse is computed.
         """
-        for unit_key in self.prob_data:
-            for seq_key in self.prob_data[unit_key]:
-                prob_vector = []
-                for call_key in self.prob_data[unit_key][seq_key]:
-                    prob_value = min(item.values()[0] for item in \
-                        self.prob_data[unit_key][seq_key][call_key])
-                    if prob_value == float('-inf'):
-                        print('Infinite : %s--%s' % (seq_key, call_key), file=sys.stderr)
-                        # set a low value
-                        prob_value = LOW_PROB
-                    prob_vector.append(prob_value)
-                new_seq_key = "%s_%s" % (str(unit_key), seq_key)
-                self.forward_obj[new_seq_key] = prob_vector
-
-    def apply_aggregation(self, operator_type):
-        """
-            reads the sequence and applies the aggregation function
-            store the result in the self.aggregated_data
-            @operator_type : one of the operators from Metric Option
-            side effect : it creates unique key for each sequence
-        """
-        for seq_key in self.forward_obj:
-            self.aggregated_data[seq_key] = operator_type(self.forward_obj[seq_key])
-
-class ProcessBiDataImpl(object):
-    def __init__(self, data_file_forward, data_file_backward):
-        """
-        read the data file
-        @data_file_forward : file name string for forward probability
-        @data_file_backward : file name string for reverse probability
-        """
-        with open(data_file_forward, 'r') as fread_forward:
-            self.prob_data_forward = json.load(fread_forward)
-        with open(data_file_backward, 'r') as fread_backward:
-            self.prob_data_backward = json.load(fread_backward)
-        self.aggregated_data = {}
-
-    def data_parser(self):
-        """
-        Parse the probability data using data parser
-        it update the forward and backward object dictionary with
-        unique seq_key and probability vector associated with sequences
-        It also ensures the key mapping is correct for the reverse sequence
-        """
-        forward_obj = {}
-        backward_obj = {}
-
-        for unit_key in self.prob_data_forward:
-            for seq_key in self.prob_data_forward[unit_key]:
-                prob_vector = self.prob_data_forward[unit_key][seq_key].values()
-                new_seq_key = "%s--%s" % (str(unit_key), seq_key)
-                forward_obj[new_seq_key] = prob_vector
+        for unit_key in self.forward_prob_data:
+            for seq_key in self.forward_prob_data[unit_key]:
+                key_list = sorted(
+                    self.forward_prob_data[unit_key][seq_key].keys())
+                for key in key_list:
+                    value = self.forward_prob_data[unit_key][seq_key][key]
+                    key_split = key.split('--')
+                    key_id = key_split[0]
+                    new_seq_key = "%s--%s--%s" % (str(unit_key), seq_key,
+                                                  key_id)
+                    if new_seq_key not in self.forward_obj:
+                        self.forward_obj[new_seq_key] = []
+                        self.event_list[new_seq_key] = []
+                    self.forward_obj[new_seq_key].append(value)
+                    self.event_list[new_seq_key].append(key)
+        # set the reverse
+        if self.reverse_prob_data:
+            for unit_key in self.reverse_prob_data:
+                for seq_key in self.reverse_prob_data[unit_key]:
+                    key_list = sorted(
+                        self.reverse_prob_data[unit_key][seq_key].keys())
+                    # get the length sequence
+                    total_states = len(
+                        set([key.split('--')[0] for key in key_list]))
+                    for key in key_list:
+                        value = self.reverse_prob_data[unit_key][seq_key][key]
+                        key_split = key.split('--')
+                        # reverse the key index
+                        key_id = total_states - int(key_split[0]) - 1
+                        new_seq_key = "%s--%s--%s" % (str(unit_key), seq_key,
+                                                      str(key_id))
+                        if new_seq_key not in self.reverse_obj:
+                            self.reverse_obj[new_seq_key] = []
+                        self.reverse_obj[new_seq_key].append(value)
+            # check if the keys match
+            assert set(self.forward_obj.keys()) == set(self.reverse_obj.keys()), "Incompatible datasets"
 
 
-        for unit_key in self.prob_data_backward:
-            for seq_key in self.prob_data_backward[unit_key]:
-                prob_vector = list(self.prob_data_backward[unit_key][seq_key].values())
-                (seq_num, seq_string) = seq_key.split("--", 1)
-                # s[::-1] reverses s
-                rev_seq = "--".join(list(reversed(seq_string.split("--"))))
-                new_seq_key = "%s--%s--%s" % (str(unit_key), seq_num, rev_seq)
-                backward_obj[new_seq_key] = prob_vector[::-1]
-        assert len(set(forward_obj.keys()) & set(backward_obj.keys())) == \
-                 len(forward_obj), "Incompatible datasets"
-
-        return (forward_obj, backward_obj)
-
-    def apply_aggregation(self, operator_type):
-        """
-            reads the sequence and applies the aggregation function
-            store the result in the self.aggregated_data
-            @operator_type : one of the operators from Metric Option
-            side effect : it creates unique key for each sequence
-        """
-        (forward_obj, backward_obj) = self.data_parser()
-
-        for k, forward_probs in forward_obj.iteritems():
-            backward_probs = backward_obj[k]
-            assert len(forward_probs) == len(backward_probs)
-            # multiple reverse and forward
-            combined_probability_vector = map(
-                lambda t: min(t[0], t[1]), zip(forward_probs, backward_probs))
-            self.aggregated_data[k] = operator_type(
-                combined_probability_vector)
-
-def get_anamolous_list(test_data_file):
+def create_location_list(test_file, state=False):
     """
-    helper script to read a ground truth file with anomalous entries.
-    This is used to compute the ranking for MAP score
-    @test_data_file : Salento acceptable Test Data File with anomalous entry
-    returns a list of anomalous keys
+    create a mapping for the location
+    :param state: set true if the data has state information
+    :param test_file: salento acceptable json file
+    :return: dict with location information
     """
-    with open(test_data_file, 'r') as fread:
-        json_data = json.load(fread)
+    location_dict = {}
+    with open(test_file, 'r') as fread:
+        salento_data = json.load(fread)
 
-    anamolous_keys = set()
-    for k, data in enumerate(json_data['packages']):
-        for j, seq in enumerate(data['data']):
-            if data['name'] == 'anomalous' and j == len(data['data']) - 1:
-                call_key = ''.join([seqs['call'] for seqs in seq['sequence']])
-                seq_key = '%d_%d_%s' % (k, j, call_key)
-                anamolous_keys.add(seq_key)
-    return anamolous_keys
-
+    for k, proc in enumerate(salento_data["packages"]):
+        for j, sequence in enumerate(proc["data"]):
+            if state:
+                for i, event in enumerate(sequence["sequence"]):
+                    key = str(k) + "--" + str(j) + "--" + str(i)
+                    location_dict[key] = {"Location": [event["location"]]}
+            else:
+                location_list = [
+                    event["location"] for event in sequence["sequence"]
+                ]
+                key = str(k) + "--" + str(j)
+                location_dict[key] = {"Location": location_list}
+    return location_dict

@@ -42,22 +42,27 @@ class Metric(object):
     @staticmethod
     def sum_raw(seq):
         """ compute sum """
-        return sum(seq)
+        return None, sum(seq)
 
     @staticmethod
     def min_raw(seq):
         """ use min value """
-        return min(seq)
+        min_value = min(seq)
+        min_index = [i for i, value in enumerate(seq) if value == min_value]
+        return min_index, min_value
 
     @staticmethod
     def sum_llh(seq):
         """ use sum of the llh aggregation """
-        return - sum([math.log(x) for x in seq])
+        return  None, - sum([math.log(x) for x in seq])
 
     @staticmethod
     def min_llh(seq):
         """ use min of the llh aggregation """
-        return - min([math.log(x) for x in seq])
+        log_val = [math.log(x) for x in seq]
+        min_value = min(log_val)
+        min_index = [i for i, value in enumerate(log_val) if value == min_value]
+        return min_index, -min_value
 
 METRICOPTION = {
     "sum_raw": Metric.sum_raw,
