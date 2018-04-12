@@ -29,13 +29,92 @@
 
 import json
 import argparse
-
 # project imports
 import metric
 import data_parser
 
 
-def write_anomaly_score():
+def write_anomaly_score(metric_choice, data_file_forward, data_file_backward,
+                        call, state, test_file, result_file):
+    """
+
+    :param metric_choice:
+    :param data_file_forward:
+    :param data_file_backward:
+    :param call:
+    :param state:
+    :param test_file:
+    :param result_file:
+    :return:
+    {
+        "title": "Schema File for anomaly score",
+        "type": "array",
+        "items": {
+            "type": "object",
+            "properties": {
+                "Anomaly Score": {
+                    "type": "number",
+                    "description": "The aggregated score"
+                },
+                "Locations": {
+                    "type": "array",
+                    "description": "The location of all the calls in path",
+                    "item": {
+                        "type": "string"
+                    }
+                },
+                "Index List": {
+                    "type": "array",
+                    "description": "All the indicies of the lowest prob value",
+                    "item": {
+                        "type": "integer"
+                    }
+                },
+                "Events": {
+                    "type": "array",
+                    "description": "All the call/states in path",
+                    "item": {
+                        "type": "string"
+                    }
+                }
+            }
+        }
+    }
+
+    """
+
+    if call:
+        process_data = data_parser.ProcessCallData(data_file_forward,
+                                                   data_file_backward)
+    elif state:
+        process_data = data_parser.ProcessStateData(data_file_forward,
+                                                    data_file_backward)
+    else:
+        raise AssertionError("Either --call or --state must be set")
+    process_data.data_parser()
+    process_data.apply_aggregation(metric.METRICOPTION[metric_choice])
+
+    # add location information
+    if test_file:
+        location_dict = data_parser.create_location_list(
+            args.test_file, args.state)
+        for key, value in process_data.aggregated_data.items():
+            process_data.aggregated_data[key].update(
+                location_dict.get(key, {}))
+    # convert to list
+    data_list = [value for key, value in process_data.aggregated_data.items()]
+    # sorted list
+    data_list = sorted(
+        data_list, key=lambda i: i['Anomaly Score'], reverse=True)
+
+    if result_file:
+        with open(result_file, 'w') as fwrite:
+            json.dump(data_list, fwrite, indent=2)
+    else:
+        print(json.dumps(data_list, indent=2))
+
+
+if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Compute Anomaly scores")
     parser.add_argument(
         '--data_file_forward',
@@ -60,37 +139,6 @@ def write_anomaly_score():
         '--state', type=bool, help="Set True for state anomaly")
 
     args = parser.parse_args()
-
-    if args.call:
-        process_data = data_parser.ProcessCallData(args.data_file_forward,
-                                                   args.data_file_backward)
-    elif args.state:
-        process_data = data_parser.ProcessStateData(args.data_file_forward,
-                                                    args.data_file_backward)
-    else:
-        raise AssertionError("Either --call or --state must be set")
-    process_data.data_parser()
-    process_data.apply_aggregation(metric.METRICOPTION[args.metric_choice])
-
-    # add location information
-    if args.test_file:
-        location_dict = data_parser.create_location_list(
-            args.test_file, args.state)
-        for key, value in process_data.aggregated_data.items():
-            process_data.aggregated_data[key].update(
-                location_dict.get(key, {}))
-    # convert to list
-    data_list = [value for key, value in process_data.aggregated_data.items()]
-    # sorted list
-    data_list = sorted(
-        data_list, key=lambda i: i['Anomaly Score'], reverse=True)
-
-    if args.result_file:
-        with open(args.result_file, 'w') as fwrite:
-            json.dump(data_list, fwrite, indent=2)
-    else:
-        print(json.dumps(data_list, indent=2))
-
-
-if __name__ == "__main__":
-    write_anomaly_score()
+    write_anomaly_score(args.metric_choice, args.data_file_forward,
+                        args.data_file_backward, args.call, args.state,
+                        args.test_file, args.result_file)
