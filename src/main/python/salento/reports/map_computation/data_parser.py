@@ -120,9 +120,11 @@ class ProcessCallData(ProcessData):
                     # reverse the
                     new_seq_key = "%s--%s" % (str(unit_key), seq_key)
                     prob_vector = reversed(
-                        self.reverse_prob_data[unit_key][seq_key].values())
+                        list(self.reverse_prob_data[unit_key][seq_key]
+                             .values()))
                     self.reverse_obj[new_seq_key] = prob_vector
-            assert set(self.forward_obj.keys()) == set(self.reverse_obj.keys()), "Incompatible datasets"
+            assert set(self.forward_obj.keys()) == set(
+                self.reverse_obj.keys()), "Incompatible datasets"
 
 
 class ProcessStateData(ProcessData):
@@ -179,7 +181,8 @@ class ProcessStateData(ProcessData):
                             self.reverse_obj[new_seq_key] = []
                         self.reverse_obj[new_seq_key].append(value)
             # check if the keys match
-            assert set(self.forward_obj.keys()) == set(self.reverse_obj.keys()), "Incompatible datasets"
+            assert set(self.forward_obj.keys()) == set(
+                self.reverse_obj.keys()), "Incompatible datasets"
 
 
 def create_location_list(test_file, state=False):

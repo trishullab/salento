@@ -30,6 +30,9 @@
 from __future__ import print_function
 import argparse
 import subprocess
+import os
+import logging
+import json
 # project imports
 import anomaly_score
 import get_raw_prob
@@ -37,11 +40,31 @@ import metric
 import reverse_sequence
 
 
+def run_cmd(cmd, log_file):
+    """
+        GOAL : capture the output
+        :param cmd : command list
+        :log_file : log file to append
+    """
+    with open(log_file, 'a') as fwrite:
+        fwrite.write(json.dumps(cmd) + "\n")
+        subprocess.check_call(cmd, stdout=fwrite, stderr=fwrite)
+
+
 def main():
     """
     main driver code to do get anomaly scores
     :return:
     """
+    logger = logging.getLogger("Anomaly Score Logs")
+    logger.setLevel(logging.INFO)
+    log_file = os.path.join("anomaly_score.log")
+    fh = logging.FileHandler(log_file)
+    formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    fh.setFormatter(formatter)
+    logger.addHandler(fh)
+
     parser = argparse.ArgumentParser()
     parser.add_argument('--test_file', type=str, help='input test file')
     parser.add_argument(
@@ -71,37 +94,26 @@ def main():
         help="Point to the path to evidence extractor")
 
     args = parser.parse_args()
+
     # check the arguments and set the necessary ones
 
     # set defaults
-    call_prob_forward_file = None
-    call_prob_reverse_file = None
-    state_prob_forward_file = None
-    state_prob_reverse_file = None
-    prob_file_reverse = None
-
     forward_evidence_file = "/tmp/forward_data_file.json"
     reverse_evidence_file = "/tmp/reverse_data_file.json"
     prob_file_forward = "/tmp/prob_file_forward.json"
-    if args.model_reverse:
-        prob_file_reverse = "/tmp/prob_file_reverse.json"
-    if args.call:
-        call_prob_forward_file = prob_file_forward
-        call_prob_reverse_file = prob_file_reverse
-    if args.state:
-        state_prob_forward_file = prob_file_forward
-        state_prob_reverse_file = prob_file_reverse
-
+    prob_file_reverse = None
     # create evidence files
+
     cmd = [
         "python3", args.path_to_evidence_extractor, args.test_file,
         forward_evidence_file
     ]
-    subprocess.check_call(cmd)
+    logger.info("Extract Evidences Forward File")
+    run_cmd(cmd, log_file)
 
     # generate reverse evidence file
     if args.model_reverse:
-
+        logger.info("Reverse The File")
         # create reverse files
         reverse_test_file = "/tmp/reverse_test_file.json"
         reverse_sequence.reverse_seq(args.test_file, reverse_test_file)
@@ -109,22 +121,38 @@ def main():
             "python3", args.path_to_evidence_extractor, reverse_test_file,
             reverse_evidence_file
         ]
-        subprocess.check_call(cmd)
+        logger.info("Extract Reverse Evidences")
+        run_cmd(cmd, log_file)
 
     # get the forward probability
+    get_raw_prob_py = os.path.join(
+        os.path.dirname(__file__), 'get_raw_prob.py')
     if args.model_forward:
-        with get_raw_prob.RawProbAggregator(
-                forward_evidence_file, args.model_forward,
-                call_prob_forward_file, state_prob_forward_file) as aggregator:
-            aggregator.run()
-            aggregator.write_results()
+        cmd = [
+            "python3", get_raw_prob_py, '--data_file', forward_evidence_file,
+            '--model_dir', args.model_forward
+        ]
+        if args.call:
+            cmd += ['--call_prob_file', prob_file_forward]
+        elif args.state:
+            cmd += ['--state_prob_file', prob_file_forward]
+        logger.info("Extract Forward Probabilities")
+        run_cmd(cmd, log_file)
+
     if args.model_reverse:
-        with get_raw_prob.RawProbAggregator(
-                reverse_evidence_file, args.model_reverse,
-                call_prob_reverse_file, state_prob_reverse_file) as aggregator:
-            aggregator.run()
-            aggregator.write_results()
+        prob_file_reverse = "/tmp/prob_file_reverse.json"
+        cmd = [
+            "python3", get_raw_prob_py, '--data_file', reverse_evidence_file,
+            '--model_dir', args.model_reverse
+        ]
+        if args.call:
+            cmd += ['--call_prob_file', prob_file_reverse]
+        elif args.state:
+            cmd += ['--state_prob_file', prob_file_reverse]
+        logger.info("Extract Reverse Probabilities")
+        run_cmd(cmd, log_file)
     # compute the anomaly score
+    logger.info("Write out the anomaly Output")
     anomaly_score.write_anomaly_score(args.metric_choice,
                                       prob_file_forward,
                                       prob_file_reverse,

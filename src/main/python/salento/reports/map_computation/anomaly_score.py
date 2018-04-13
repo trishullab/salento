@@ -96,8 +96,7 @@ def write_anomaly_score(metric_choice, data_file_forward, data_file_backward,
 
     # add location information
     if test_file:
-        location_dict = data_parser.create_location_list(
-            args.test_file, args.state)
+        location_dict = data_parser.create_location_list(test_file, state)
         for key, value in process_data.aggregated_data.items():
             process_data.aggregated_data[key].update(
                 location_dict.get(key, {}))
