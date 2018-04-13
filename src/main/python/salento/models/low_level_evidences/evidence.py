@@ -94,7 +94,7 @@ def _get_apicalls(program, max_seqs=9999, max_seq_length=9999, KEY='apicalls', c
 def update_apicalls(program, max_seqs=9999, max_seqs_length=9999, KEY='apicalls'):
     if KEY in program:
         return True
-    if _valid_apicalls(program, max_seq, max_seqs_length):
+    if _valid_apicalls(program, max_seqs, max_seqs_length):
         program[KEY] = _extract_evidence(program)
         return True
     return False
