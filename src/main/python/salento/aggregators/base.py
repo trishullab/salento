@@ -35,16 +35,20 @@ class Aggregator(object):
         self._model_dir = model_dir
         self.END_MARKER = 'STOP'
 
+
+    def log(self, *args, end='\n'):
+        print(*args, flush=True, end=end)
+
     def __enter__(self):
-        print('Loading model...', end='', flush=True)
+        self.log('Loading model...', end='')
         self.sess = tf.Session()
         self.model = BayesianPredictor(self._model_dir, self.sess)
-        print('done')
+        self.log('done')
 
-        print('Loading data...', end='', flush=True)
+        self.log('Loading data...', end='')
         with smart_open(self._data_file, "rt") as f:
             self.dataset = json.load(f)
-        print('done')
+        self.log('done')
 
         return self
 
