@@ -75,7 +75,7 @@ class ProcessData(object):
             # get the reverse prob
             if self.reverse_prob_data:
                 reverse_probs = self.reverse_obj[seq_key]
-                combined_probability_vector = map(lambda t: min(t[0], t[1]),
+                combined_probability_vector = map(lambda t: t[0] * t[1],
                                                   zip(forward_probs,
                                                       reverse_probs))
             else:
