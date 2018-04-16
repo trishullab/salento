@@ -80,7 +80,7 @@ class RawProbAggregator(Aggregator):
         self.state_file = state_file
         self.chunk = chunk
 
-    def get_call_prob(self, spec, sequence):
+    def get_seq_call_prob(self, spec, sequence):
         """
         Compute call probability
         :param spec: latent specification
@@ -92,7 +92,7 @@ class RawProbAggregator(Aggregator):
             call_key = (str(i) + '--' + event['call'])
             prob_value = float(
                 self.distribution_next_call(
-                    spec, sequence, call=self.call(event)))
+                    spec, sequence[:i+1], call=self.call(event)))
             event_data[call_key] = prob_value
         return event_data
 
@@ -164,18 +164,20 @@ class RawProbAggregator(Aggregator):
         """
         # iterate over units
         print("Total packages {}".format(len(self.packages())))
-        for k, package in enumerate(self.packages()):
+        for k, proc in enumerate(self.packages()):
+            if 'apicalls' not in proc:
+                raise AssertionError("Not a valid Evidence file")
             print(
                 'Query Probability For Package Number {} '.format(k), end='\r')
             call_seq_prob = {}
             state_seq_prob = {}
-            spec = self.get_latent_specification(package)
+            spec = self.get_latent_specification(proc)
             # iterate over sequence
-            for j, sequence in enumerate(self.sequences(package)):
+            for j, sequence in enumerate(self.sequences(proc)):
                 events = self.events(sequence)
 
                 if self.call_file:
-                    call_seq_prob[str(j)] = self.get_call_prob(spec, events)
+                    call_seq_prob[str(j)] = self.get_seq_call_prob(spec, events)
                 if self.state_file:
                     state_seq_prob[str(j)] = self.get_state_prob(spec, events)
             # write chunks
