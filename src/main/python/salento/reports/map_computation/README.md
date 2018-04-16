@@ -1,10 +1,22 @@
-## MAP Score
+# Introduction
 
-We want to use mean average precision (MAP) score to evaluate the results.
-The MAP provides a single-figure measure of quality across recall levels, a good
-reference can be found [here](https://nlp.stanford.edu/IR-book/html/htmledition/evaluation-of-ranked-retrieval-results-1.html).
+The scripts in this directory query a salento trained model and apply anomaly metric on them. There are two use case scenarios `anomaly score` and other is to compute `mean average precision`.
 
-### Metric Implemented
+The content of the folder are
+
+```bash
+├── anomaly_score.py # anomaly score implementation script
+├── compute_map.py # map computation driver
+├── data_parser.py
+├── driver_anomaly_score.py # main driver to get anomaly score
+├── get_raw_prob.py
+├── metric.py
+├── README.md
+└── reverse_sequence.py
+
+```
+
+## Metric Implemented
 
 There are four metrics being implemented, which gives user the choice to pick the metrics.
 
@@ -13,17 +25,110 @@ There are four metrics being implemented, which gives user the choice to pick th
 3. [sum_llh] Sum over the log likelihood of probabilities in a sequence
 4. [min_llh] Minimum over the log likelihood of probabilities in a sequence
 
-## Metric Usage
+
+## Anomaly Score
+
+To get anomaly score for a given test file, the user should use the script `driver_anomaly_score.py`, the schema of the output and usage is given below.
+Its worth noting that script takes in `reverse` training option which makes it bidirectional.
+
+### Json Schema
+
+```json
+{
+	"title": "Schema File for anomaly score",
+	"type": "array",
+	"items": {
+		"type": "object",
+		"properties": {
+			"Anomaly Score": {
+				"type": "number",
+				"description": "The aggregated score"
+			},
+			"Locations": {
+				"type": "array",
+				"description": "The location of all the calls in path",
+				"item": {
+					"type": "string"
+				}
+			},
+			"Index List": {
+				"type": "array",
+				"description": "All the indicies of the lowest prob value",
+				"item": {
+					"type": "integer"
+				}
+			},
+			"Events": {
+				"type": "array",
+				"description": "All the call/states in path",
+				"item": {
+					"type": "string"
+				}
+			}
+		}
+	}
+}
+```
+
+### Usage
+
+The usage for the `driver_anomaly_score.py` is as follows
 
 ```bash
 
-usage: driver.py [-h] --data_file_forward DATA_FILE_FORWARD
-                 [--data_file_backward DATA_FILE_BACKWARD] --metric_choice
-                 {min_raw,sum_raw,sum_llh,min_llh}
-                 [--test_data_file TEST_DATA_FILE] [--result_file RESULT_FILE]
-                 [--direction {forward,bidirectional}]
+python3 salento/src/main/python/salento/reports/map_computation/driver_anomaly_score.py \
+ --test_file test_data.json \
+ --model_forward ~/train_model/forward_model/ \
+ --model_reverse ~/train_model/reverse_model/ \
+ --result_file anomaly_score_test_state.json  \
+ --state True  
+```
 
-Compute map score
+If user wants to get call probability they should set `--call True`. We can only query one of them.
+
+```bash
+usage: driver_anomaly_score.py [-h] --test_file TEST_FILE --model_forward
+                               MODEL_FORWARD [--model_reverse MODEL_REVERSE]
+                               [--call CALL] [--state STATE]
+                               [--metric_choice {min_raw,sum_raw,sum_llh,min_llh}]
+                               [--result_file RESULT_FILE]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --test_file TEST_FILE
+                        input test file
+  --model_forward MODEL_FORWARD
+                        directory to load the model from
+  --model_reverse MODEL_REVERSE
+                        directory to load the model from
+  --call CALL           Set True to compute anomaly score using call
+                        probability
+  --state STATE         Set True to compute anomaly score using states
+                        probability
+  --metric_choice {min_raw,sum_raw,sum_llh,min_llh}
+                        Choose the metric to be applied
+  --result_file RESULT_FILE
+                        File to write the anomaly score
+
+```
+
+
+## MAP Score
+
+We want to use mean average precision (MAP) score to evaluate the results.
+The MAP provides a single-figure measure of quality across recall levels, a good
+reference can be found [here](https://nlp.stanford.edu/IR-book/html/htmledition/evaluation-of-ranked-retrieval-results-1.html).
+
+```bash
+
+usage: compute_map.py [-h] --data_file_forward DATA_FILE_FORWARD
+                      [--data_file_backward DATA_FILE_BACKWARD]
+                      --metric_choice {min_raw,sum_raw,sum_llh,min_llh}
+                      [--test_data_file TEST_DATA_FILE]
+                      [--result_file RESULT_FILE]
+                      [--direction {forward,bidirectional}]
+
+Compute map scores
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -39,23 +144,14 @@ optional arguments:
                         Write out the results in a file
   --direction {forward,bidirectional}
                         Choose type of combination
+
 ```
 
-## Get probabilities for test data set
-
-We want to apply different metrics on the salento test data. To achieve this we
-want to have a separation of concerns, where the probability scores and the
-metric applications are separated out.
-
-There are two modes to query probabilities
-
-1. Probabilities associated with calls
-2. Probabilities associated with states
+## Getting the raw probabilities for test data set
 
 The script `get_raw_prob.py` provides interface to get predicted probabilities
-to get call and states information for each point. To get calls probabilities user should
-pass the filename for  `--call_prob_file` and to gets states probabilities  user should
-pass the filename for `--state_prob_file` and if both are passed then we get probabilities associated with calls and states. 
+to get call and states information at each point along a trace path. To get calls probabilities user should pass the filename for  `--call_prob_file` and to gets states probabilities  user should pass the filename for `--state_prob_file` and if both are passed then we get probabilities associated with calls and states.
+
 
 
 ```bash
@@ -73,7 +169,7 @@ usage: get_raw_prob.py [-h] --data_file DATA_FILE --model_dir MODEL_DIR
 
 ```
 
-#### Json Schema for th output
+#### Json Schema for the output
 
 ```json
 {

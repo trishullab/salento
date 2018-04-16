@@ -56,16 +56,6 @@ def main():
     main driver code to do get anomaly scores
     :return:
     """
-    logger = logging.getLogger("Anomaly Score Logs")
-    logger.setLevel(logging.INFO)
-    time_str = time.strftime("%Y%m%d-%H%M%S")
-    log_file = time_str + "_anomaly_score.log"
-    fh = logging.FileHandler(log_file)
-    formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    fh.setFormatter(formatter)
-    logger.addHandler(fh)
-
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '--test_file',
@@ -100,6 +90,19 @@ def main():
     # check the arguments and set the necessary ones
     if not args.call and not args.state:
         raise AssertionError("Either call or state should be set!")
+
+    if args.call and args.state:
+        raise AssertionError("You can only set call or state both not both")
+    # set logger
+    logger = logging.getLogger("Anomaly Score Logs")
+    logger.setLevel(logging.INFO)
+    time_str = time.strftime("%Y%m%d-%H%M%S")
+    log_file = time_str + "_anomaly_score.log"
+    fh = logging.FileHandler(log_file)
+    formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    fh.setFormatter(formatter)
+    logger.addHandler(fh)
 
     # set defaults
     forward_evidence_file = "/tmp/forward_data_file.json"
