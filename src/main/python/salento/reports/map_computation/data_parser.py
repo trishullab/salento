@@ -84,7 +84,8 @@ class ProcessData(object):
             self.aggregated_data[seq_key] = {
                 "Anomaly Score": score,
                 "Index List": index_list,
-                "Events": self.event_list[seq_key]
+                "Events": self.event_list[seq_key],
+                "Probability" : combined_probability_vector
             }
 
 
@@ -148,12 +149,15 @@ class ProcessStateData(ProcessData):
         """
         for unit_key in self.forward_prob_data:
             for seq_key in self.forward_prob_data[unit_key]:
+                key_list = self.forward_prob_data[unit_key][seq_key].keys()
                 key_list = sorted(
-                    self.forward_prob_data[unit_key][seq_key].keys())
+                    key_list,
+                    key=lambda x: (int(x.split('--')[0]), x.split('--')[2]))
                 for key in key_list:
                     value = self.forward_prob_data[unit_key][seq_key][key]
                     key_split = key.split('--')
                     key_id = key_split[0]
+
                     new_seq_key = "%s--%s--%s" % (str(unit_key), seq_key,
                                                   key_id)
                     if new_seq_key not in self.forward_obj:
@@ -166,7 +170,9 @@ class ProcessStateData(ProcessData):
             for unit_key in self.reverse_prob_data:
                 for seq_key in self.reverse_prob_data[unit_key]:
                     key_list = sorted(
-                        self.reverse_prob_data[unit_key][seq_key].keys())
+                        self.reverse_prob_data[unit_key][seq_key].keys(),
+                        key=lambda x: (int(x.split('--')[0]), x.split('--')[2])
+                    )
                     # get the length sequence
                     total_states = len(
                         set([key.split('--')[0] for key in key_list]))
@@ -175,11 +181,15 @@ class ProcessStateData(ProcessData):
                         key_split = key.split('--')
                         # reverse the key index
                         key_id = total_states - int(key_split[0]) - 1
+
                         new_seq_key = "%s--%s--%s" % (str(unit_key), seq_key,
                                                       str(key_id))
                         if new_seq_key not in self.reverse_obj:
                             self.reverse_obj[new_seq_key] = []
                         self.reverse_obj[new_seq_key].append(value)
+            # reverse the states vector
+            for key in self.reverse_obj:
+                self.reverse_obj[key].reverse()
             # check if the keys match
             assert set(self.forward_obj.keys()) == set(
                 self.reverse_obj.keys()), "Incompatible datasets"
@@ -200,12 +210,33 @@ def create_location_list(test_file, state=False):
         for j, sequence in enumerate(proc["data"]):
             if state:
                 for i, event in enumerate(sequence["sequence"]):
-                    key = str(k) + "--" + str(j) + "--" + str(i)
-                    location_dict[key] = {"Location": [event["location"]]}
+                    location_list = [
+                        event["location"] for event in sequence["sequence"]
+                    ]
+                    call_list = [
+                        event["call"] for event in sequence["sequence"]
+                    ]
+                    call = call_list[i]
+                    location = location_list[i]
+                    for l, st in enumerate(event['states']):
+                        state_id = "%s with State index %d with value %d" % (call, l, st)
+                        location_list.insert(i + l + 1, location)
+                        call_list.insert(i + l + 1, state_id)
+
+                    new_seq_key = "%s--%s--%s" % (str(k), str(j), str(i))
+
+                    location_dict[new_seq_key] = {
+                        "Location": location_list,
+                        "Calls": call_list
+                    }
             else:
                 location_list = [
                     event["location"] for event in sequence["sequence"]
                 ]
+                call_list = [event["call"] for event in sequence["sequence"]]
                 key = str(k) + "--" + str(j)
-                location_dict[key] = {"Location": location_list}
+                location_dict[key] = {
+                    "Location": location_list,
+                    "Calls": call_list
+                }
     return location_dict
