@@ -33,7 +33,7 @@ import json
 class ProcessData(object):
     """ Takes in detailed probability call computes the metrics """
 
-    def __init__(self, forward_prob_file, reverse_prob_file=None):
+    def __init__(self, forward_prob_file=None, reverse_prob_file=None):
         """
         :param forward_prob_file: file with forward probability
         :param reverse_prob_file: file with reverse probability
@@ -41,8 +41,9 @@ class ProcessData(object):
         self.forward_prob_data = None
         self.reverse_prob_data = None
         # read the probability data
-        with open(forward_prob_file, 'r') as fread:
-            self.forward_prob_data = json.load(fread)
+        if forward_prob_file:
+            with open(forward_prob_file, 'r') as fread:
+                self.forward_prob_data = json.load(fread)
         if reverse_prob_file:
             with open(reverse_prob_file, 'r') as fread:
                 self.reverse_prob_data = json.load(fread)
