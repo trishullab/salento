@@ -29,6 +29,8 @@
 from __future__ import print_function
 import json
 
+END_MARKER = "STOP"
+
 
 class ProcessData(object):
     """ Takes in detailed probability call computes the metrics """
@@ -76,9 +78,9 @@ class ProcessData(object):
             # get the reverse prob
             if self.reverse_prob_data:
                 reverse_probs = self.reverse_obj[seq_key]
-                combined_probability_vector = map(lambda t: t[0] * t[1],
-                                                  zip(forward_probs,
-                                                      reverse_probs))
+                combined_probability_vector = list(
+                    map(lambda t: t[0] * t[1], zip(forward_probs,
+                                                   reverse_probs)))
             else:
                 combined_probability_vector = forward_probs
             index_list, score = operator_type(combined_probability_vector)
@@ -86,7 +88,7 @@ class ProcessData(object):
                 "Anomaly Score": score,
                 "Index List": index_list,
                 "Events": self.event_list[seq_key],
-                "Probability" : combined_probability_vector
+                "Probability": combined_probability_vector
             }
 
 
@@ -219,8 +221,14 @@ def create_location_list(test_file, state=False):
                     ]
                     call = call_list[i]
                     location = location_list[i]
-                    for l, st in enumerate(event['states']):
-                        state_id = "%s with State index %d with value %d" % (call, l, st)
+                    # state vector with end marker
+                    state_vector = event['states'] + [END_MARKER]
+                    for l, st in enumerate(state_vector):
+                        if l == len(state_vector) - 1:
+                            state_id = "End Marker %s" % st
+                        else:
+                            state_id = "%s with State index %d with value %d" % (
+                                call, l, st)
                         location_list.insert(i + l + 1, location)
                         call_list.insert(i + l + 1, state_id)
 
@@ -235,6 +243,10 @@ def create_location_list(test_file, state=False):
                     event["location"] for event in sequence["sequence"]
                 ]
                 call_list = [event["call"] for event in sequence["sequence"]]
+                # add end marker
+                call_list.append(END_MARKER)
+                # add last location
+                location_list.append(location_list[-1])
                 key = str(k) + "--" + str(j)
                 location_dict[key] = {
                     "Location": location_list,
