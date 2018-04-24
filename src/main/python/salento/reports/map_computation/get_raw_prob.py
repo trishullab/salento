@@ -41,11 +41,13 @@ class RawProbAggregator(Aggregator):
     """
     """
 
-    def __init__(self,
-                 data_file,
-                 model_dir,
-                 call_file=None,
-                 state_file=None,):
+    def __init__(
+            self,
+            data_file,
+            model_dir,
+            call_file=None,
+            state_file=None
+    ):
         """
 
         :param data_file: file with test data
@@ -60,39 +62,6 @@ class RawProbAggregator(Aggregator):
         self.state_file = state_file
         self.cache = {}
 
-    def call_dist(self, spec, events):
-        """
-        call distribution
-        :param spec: latent specification
-        :param events:  a sequences of events
-        :return:  predicted call probabilities
-        """
-        events_len = len(events)
-        for (i, row) in enumerate(
-                self.distribution_call_iter(spec, events, cache=self.cache)):
-            if i == events_len:
-                next_call = self.END_MARKER
-            else:
-                next_call = events[i]['call']
-            yield row.distribution.get(next_call, 0.0)
-
-    def state_dist(self, spec, events):
-        """
-        state distribution
-        :param spec: latent specification
-        :param events:  a sequences of events
-        :return:  predicted state probabilities
-        """
-        for (i, row) in enumerate(
-                self.distribution_state_iter(spec, events, cache=self.cache)):
-            if i == len(events):
-                # cant get the probability for the end call
-                continue
-            else:
-                for s_i, s_t in enumerate(events[i]['states']):
-                    key = str(s_i) + '#' + str(s_t)
-                    yield row.distribution.get(key, 0.0)
-
     def get_seq_call_prob(self, spec, sequence):
         """
         Compute call probability
@@ -100,12 +69,17 @@ class RawProbAggregator(Aggregator):
         :param sequence: a sequences of events
         :return: predicted call probabilities
         """
-
         event_data = {}
-        row = np.fromiter(self.call_dist(spec, sequence), dtype=np.float64)
-        for i, event in enumerate(sequence):
-            call_key = (str(i) + '--' + event['call'])
-            event_data[call_key] = row[i]
+        events_len = len(sequence)
+        for (i, row) in enumerate(
+                self.distribution_call_iter(spec, sequence, cache=self.cache)):
+            if i == events_len:
+                next_call = self.END_MARKER
+                call_key = str(i) + '--' + self.END_MARKER
+            else:
+                next_call = sequence[i]['call']
+                call_key = str(i) + '--' + sequence[i]['call']
+            event_data[call_key] = float(row.distribution.get(next_call, 0.0))
         return event_data
 
     def get_state_prob(self, spec, sequence):
@@ -115,15 +89,19 @@ class RawProbAggregator(Aggregator):
         :param sequence: a sequences of events
         :return: predicted states probabilities
         """
-        row = np.fromiter(self.state_dist(spec, sequence), dtype=np.float64)
         event_data = {}
-        count = 0
         for i, event in enumerate(sequence):
             call_key = (str(i) + '--' + event['call'])
-            for s_i, st in enumerate(event['states']):
+            last_call_state = copy.deepcopy(event['states'])
+            # add the end marker
+            last_call_state.append(self.END_MARKER)
+            sequence[i]["states"] = []
+            for s_i, st in enumerate(last_call_state):
+                val = self.distribution_next_state(spec, sequence[:i + 1], st,
+                                                   self.cache)
                 st_key = call_key + '--' + str(s_i) + "#" + str(st)
-                event_data[st_key] = row[count]
-                count += 1
+                sequence[i]["states"].append(st)
+                event_data[st_key] = float(val)
         return event_data
 
     def write_results(self):
@@ -194,6 +172,7 @@ if __name__ == '__main__':
         raise AssertionError("Must get call or state probability")
 
     with RawProbAggregator(clargs.data_file, clargs.model_dir,
-                           clargs.call_prob_file, clargs.state_prob_file) as aggregator:
+                           clargs.call_prob_file,
+                           clargs.state_prob_file) as aggregator:
         aggregator.run()
         aggregator.write_results()
