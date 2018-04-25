@@ -171,8 +171,10 @@ if __name__ == '__main__':
                         help='config file (see description above for help)')
     parser.add_argument('--continue_from', type=str, default=None,
                         help='ignore config options and continue training model checkpointed here')
-    parser.add_argument('--good_pattern_file', type=str, help='good pattern file')
-    parser.add_argument('--bad_pattern_file', type=str,  help='bad patterns file')
+    parser.add_argument('--good_pattern_file', type=str,
+            help='good pattern file with schema pattern_file_schema.json')
+    parser.add_argument('--bad_pattern_file', type=str,
+            help='bad patterns file with schema pattern_file_schema.json')
     clargs = parser.parse_args()
     sys.setrecursionlimit(clargs.python_recursion_limit)
     if clargs.config and clargs.continue_from:
