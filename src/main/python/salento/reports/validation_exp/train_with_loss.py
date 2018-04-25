@@ -22,12 +22,11 @@ import os
 import sys
 import json
 import textwrap
-import subprocess
 
 from salento.models.low_level_evidences.data_reader import Reader, smart_open
 from salento.models.low_level_evidences.model import Model
 from salento.models.low_level_evidences.utils import read_config, dump_config
-from salento.reports.map_computation import data_parser, metric
+from salento.reports.validation_exp import ExternalLoss
 
 HELP = """\
 Config options should be given as a JSON file (see config.json for example):
@@ -57,46 +56,7 @@ Config options should be given as a JSON file (see config.json for example):
 """
 
 
-def loss_func(input_file, model_dir, good_pattern, bad_pattern):
-    """
-    External loss function
-    :param input_file: test data file
-    :param model_dir: model directory to pick last epoch model
-    :param good_pattern: good patterns to look for
-    :param bad_pattern: bad patterns to look for
-    :return: loss
-    """
-    get_raw_prob_py = os.path.join(os.path.dirname(__file__), 'raw_prob_pattern.py')
-    cmd = ['python3',
-           get_raw_prob_py,
-           '--data_file', input_file,
-           '--model_dir', model_dir,
-           '--good_seq_prob_file', '/tmp/good_seq.json',
-           '--bad_seq_prog_file', '/tmp/bad_seq.json'
-           '--call', 'True']
-    if good_pattern:
-        cmd.append('--good_pattern')
-        for pattern in good_pattern:
-            cmd.append(pattern)
-    if bad_pattern:
-        cmd.append('--bad_pattern')
-        for pattern in bad_pattern:
-            cmd.append(pattern)
-    subprocess.check_call(cmd)
 
-    parser_bad = data_parser.ProcessCallData('/tmp/good_seq.json', None)
-    parser_bad.data_parser()
-    parser_bad.apply_aggregation(metric.Metric.min_llh)
-
-    parser_good = data_parser.ProcessCallData('/tmp/bad_seq.json', None)
-    parser_good.data_parser()
-    parser_good.apply_aggregation(metric.Metric.min_llh)
-    
-    bad_anomaly = [parser_bad.aggregated_data[key]["Anomaly Score"] for key in parser_bad.aggregated_data]
-    good_anomaly = [parser_good.aggregated_data[key]["Anomaly Score"] for key in parser_good.aggregated_data]
-    
-    loss = sum([abs(x - y) for x in bad_anomaly for y in good_anomaly]) / (len(bad_anomaly) * len(good_anomaly))
-    return loss
 
 
 def train(clargs):
@@ -111,6 +71,13 @@ def train(clargs):
     print(json.dumps(jsconfig, indent=2))
     with open(os.path.join(clargs.save, 'config.json'), 'w') as f:
         json.dump(jsconfig, fp=f, indent=2)
+
+    # make the training directory
+    train_loss_dir = os.path.join(clargs.save, 'training_loss')
+    if not os.path.exists(train_loss_dir):
+        os.mkdir(train_loss_dir)
+    # set the external loss
+    pattern_loss = ExternalLoss.PatternLoss(clargs.save, clargs.good_pattern_file, clargs.bad_pattern_file)
 
     model = Model(config)
 
@@ -169,12 +136,13 @@ def train(clargs):
                            end - start))
             checkpoint_dir = os.path.join(clargs.save, 'model{}.ckpt'.format(i))
             saver.save(sess, checkpoint_dir)
-            ext_loss = loss_func(clargs.input_file[0], clargs.save, clargs.good_pattern, clargs.bad_pattern)
-            loss_tracker = {"evidence": avg_evidence / config.num_batches,
-                            "latent": avg_latent / config.num_batches,
-                            "generation": avg_generation / config.num_batches,
-                            "loss": avg_loss / config.num_batches,
-                            "external": ext_loss}
+            ext_loss = pattern_loss.loss_func()
+            loss_tracker = {"epoch_id" : i,
+                            "evidence_loss": avg_evidence / config.num_batches,
+                            "latent_loss": avg_latent / config.num_batches,
+                            "generation_loss": avg_generation / config.num_batches,
+                            "opt_loss": avg_loss / config.num_batches,
+                            "external_loss": ext_loss}
 
             print('Model checkpointed: {}. Average for epoch evidence: {:.3f}, latent: {:.3f}, '
                   'generation: {:.3f}, loss: {:.3f}, ext_loss: {:.3f}'.format
@@ -185,7 +153,7 @@ def train(clargs):
                    avg_loss / config.num_batches,
                    ext_loss))
             # write out the losses to a file to be picked by the validation system
-            loss_file = os.path.join(clargs.save, 'train_loss.json')
+            loss_file = os.path.join(train_loss_dir, 'train_loss_%d.json' % i)
             with open(loss_file, 'w') as fout:
                 json.dump(loss_tracker, fout)
 
@@ -203,8 +171,8 @@ if __name__ == '__main__':
                         help='config file (see description above for help)')
     parser.add_argument('--continue_from', type=str, default=None,
                         help='ignore config options and continue training model checkpointed here')
-    parser.add_argument('--good_pattern', type=str, nargs='+',  help='good patterns')
-    parser.add_argument('--bad_pattern', type=str,  nargs='+',  help='bad patterns')
+    parser.add_argument('--good_pattern_file', type=str, help='good pattern file')
+    parser.add_argument('--bad_pattern_file', type=str,  help='bad patterns file')
     clargs = parser.parse_args()
     sys.setrecursionlimit(clargs.python_recursion_limit)
     if clargs.config and clargs.continue_from:
