@@ -1,0 +1,31 @@
+{
+    "title": "All the losses in the present in the model at every epoch",
+    "type": "object",
+    "properties": {
+        "epoch_id": { 
+            "type" : "number",
+            "description" : "The epoch iteration number"
+        },
+        "evidence_loss": { 
+             "type" : "number",
+             "description" : "The loss attributed to evidence loss: log P(f(theta) | Psi; sigma)"
+        },
+        "latent_loss": { 
+             "type" : "number",
+             "description" : "The loss attributed to the KL-divergence between P(Psi | f(Theta)) and P(Psi)"
+        },
+        "generation_loss": { 
+             "type" : "number",
+             "description" : "The loss attributed to the generation loss: log P(X | Psi) seq2seq.sequence_loss"
+        },
+        "opt_loss": { 
+             "type" : "number",
+             "description" : "The loss attributed to the optimization (ADAM)"
+        },
+        "external_loss": { 
+             "type" : "number",
+             "description" : "The loss attributed to the pattern based external loss"
+        }
+    },
+    "required" : ["external_loss", "opt_loss"]
+}
