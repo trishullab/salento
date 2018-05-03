@@ -109,7 +109,7 @@ class Reader():
         self.reset_batches()
 
     def read_data(self, filename):
-        with smart_open(filename) as f:
+        with smart_open(filename, 'rt') as f:
             js = json.load(f)
         data_points = []
         ignored, done = 0, 0
