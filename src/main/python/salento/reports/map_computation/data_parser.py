@@ -110,11 +110,12 @@ class ProcessCallData(ProcessData):
         """
         for unit_key in self.forward_prob_data:
             for seq_key in self.forward_prob_data[unit_key]:
-                prob_vector = self.forward_prob_data[unit_key][
-                    seq_key].values()
+                prob_vector = list(self.forward_prob_data[unit_key][
+                    seq_key].values())
                 event_vector = self.forward_prob_data[unit_key][seq_key].keys()
                 new_seq_key = "%s--%s" % (str(unit_key), seq_key)
-                self.forward_obj[new_seq_key] = prob_vector
+                # ignore the first prob value
+                self.forward_obj[new_seq_key] = prob_vector[1:]
                 self.event_list[new_seq_key] = sorted(
                     event_vector, key=lambda x: int(x.split('--')[0]))
         # set the reverse
@@ -126,7 +127,8 @@ class ProcessCallData(ProcessData):
                     prob_vector = reversed(
                         list(self.reverse_prob_data[unit_key][seq_key]
                              .values()))
-                    self.reverse_obj[new_seq_key] = prob_vector
+                    # ignore the first prob value
+                    self.reverse_obj[new_seq_key] = prob_vector[1:]
             assert set(self.forward_obj.keys()) == set(
                 self.reverse_obj.keys()), "Incompatible datasets"
 
