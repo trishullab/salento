@@ -163,13 +163,14 @@ def main():
         run_cmd(cmd, log_file)
     # compute the anomaly score
     logger.info("Write out the anomaly Output")
-    anomaly_score.write_anomaly_score(args.metric_choice,
-                                      prob_file_forward,
-                                      prob_file_reverse,
-                                      args.call,
-                                      args.state,
-                                      args.test_file,
-                                      args.result_file)
+    sarif_client = anomaly_score.SarifFileGenerator(
+        args.metric_choice,
+        prob_file_forward,
+        prob_file_reverse,
+        args.call,
+        args.state,
+        args.test_file)
+    sarif_client.write_anomaly_score(args.result_file)
 
     # clean up the tmp files
     os.remove(forward_evidence_file)

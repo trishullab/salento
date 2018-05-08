@@ -34,118 +34,148 @@ import metric
 import data_parser
 
 
-def get_result(anomaly_data):
+class SarifFileGenerator(object):
     """
-    convert anomaly data to sarif style data
-    :param anomaly_data: dict containing anomaly score, events and call
-    :return: dictionary containing sarif result
+        Class to do Generator Sarif file
     """
+    def __init__(self, metric_choice, data_file_forward, data_file_backward,
+                            call, state, test_file):
+        """
+        :param metric_choice: the metric to use
+        :param data_file_forward: files with forward probabilities
+        :param data_file_backward: files with reverse probabilities
+        :param call: if call probability
+        :param state: if state probability
+        :param test_file: original test file
+        """
+        self.sarif_data = {"version": "1.0.0", "runs": []}
+        # set the process
+        if call:
+            self.process_data = data_parser.ProcessCallData(data_file_forward,
+                                                       data_file_backward)
+        elif state:
+            self.process_data = data_parser.ProcessStateData(data_file_forward,
+                                                        data_file_backward)
+        else:
+            raise AssertionError("Either --call or --state must be set")
 
-    message = "Anomaly Score is %f, Probability Vector %s" % \
-              (anomaly_data["Anomaly Score"], str(anomaly_data["Probability"]))
-    sarif_results = {"codeFlows": [], "locations": [], "message": message}
-    # set code flow
-    codeflow_locations = {"locations": []}
-    bug_locations = []
-    bug_index = set(anomaly_data["Index List"])
-    for i, loc in enumerate(anomaly_data["Location"]):
-        loc_split = loc.split(":")
-        # set the bug point
-        if i in bug_index:
-            error_msg = "Anomalous Usage at %s" % anomaly_data["Calls"][i]
-            bug_point = dict(
-                resultFile={
+        self.test_file = test_file
+        self.state = state
+        self.metric = metric.METRICOPTION[metric_choice]
+
+
+    def apply_metric(self):
+        """
+        Apply the metric
+        :return:
+        """
+        self.process_data.data_parser()
+        self.process_data.apply_aggregation(self.metric)
+
+    def update_location(self):
+        """
+            update location
+        """
+        # add location information
+        if self.test_file:
+            location_dict = data_parser.create_location_list(self.test_file, self.state)
+            for key, value in self.process_data.aggregated_data.items():
+                self.process_data.aggregated_data[key].update(
+                    location_dict.get(key, {}))
+
+        # update the state:
+        if self.state:
+            for key in self.process_data.aggregated_data:
+                key_split = key.split('--')
+                new_list = []
+                for index in self.process_data.aggregated_data[key]["Index List"]:
+                    in_key = int(key_split[2]) + 1 + index
+                    new_list.append(in_key)
+                self.process_data.aggregated_data[key]["Index List"] = new_list
+
+    def create_sarif_data(self, limit):
+        """
+        create sarif acceptable data
+        :param limit:
+        :return:
+        """
+        # convert to list
+        data_list = [value for key, value in self.process_data.aggregated_data.items()]
+        # sorted list
+        data_list = sorted(
+            data_list, key=lambda i: i['Anomaly Score'], reverse=True)
+
+        data_list = data_list[0:limit]
+        tool_result = {"tool": {"name": "Salento"}}
+        results = []
+        for i, data in enumerate(data_list):
+            converted_data = self.cvt_trace_to_sarif(data)
+            converted_data["message"] += ", seq id %d" % i
+            results.append(converted_data)
+
+        tool_result["results"] = results
+        self.sarif_data["runs"].append(tool_result)
+
+    def cvt_trace_to_sarif(self, anomaly_data):
+        """
+        convert anomaly data to sarif style data
+        :param anomaly_data: dict containing anomaly score, events and call
+        :return: dictionary containing sarif result
+        """
+
+        message = "Anomaly Score is %f, Probability Vector %s" % \
+                  (anomaly_data["Anomaly Score"], str(anomaly_data["Probability"]))
+        sarif_results = {"codeFlows": [], "locations": [], "message": message}
+        # set code flow
+        codeflow_locations = {"locations": []}
+        bug_locations = []
+        bug_index = set(anomaly_data["Index List"])
+        for i, loc in enumerate(anomaly_data["Location"]):
+            loc_split = loc.split(":")
+            # set the bug point
+            if i in bug_index:
+                error_msg = "Anomalous Usage at %s" % anomaly_data["Calls"][i]
+                bug_point = dict(
+                    resultFile={
+                        "uri": "file://" + loc_split[0],
+                        "region": {
+                            "startLine": int(loc_split[1])
+                        }
+                    })
+                bug_locations.append(bug_point)
+            else:
+                error_msg = "Call point %s at trace path seq %d" % (anomaly_data["Calls"][i], i)
+            # set the trace point
+            trace_point = {
+                "message": error_msg,
+                # steps cannot be 0
+                "step": i + 1,
+                "physicalLocation": {
                     "uri": "file://" + loc_split[0],
                     "region": {
-                        "startLine": int(loc_split[1])
+                        "startLine": int(loc_split[1]),
+                        "endLine": int(loc_split[1])
                     }
-                })
-            bug_locations.append(bug_point)
-        else:
-            error_msg = "Call point %s at trace path seq %d" % (anomaly_data["Calls"][i],i)
-        # set the trace point
-        trace_point = {
-            "message": error_msg,
-            # steps cannot be 0
-            "step": i + 1,
-            "physicalLocation": {
-                "uri": "file://" + loc_split[0],
-                "region": {
-                    "startLine": int(loc_split[1]),
-                    "endLine": int(loc_split[1])
                 }
             }
-        }
-        codeflow_locations["locations"].append(trace_point)
-    sarif_results["codeFlows"].append(codeflow_locations)
-    sarif_results["locations"] = bug_locations
-    return sarif_results
+            codeflow_locations["locations"].append(trace_point)
+        sarif_results["codeFlows"].append(codeflow_locations)
+        sarif_results["locations"] = bug_locations
+        return sarif_results
 
-
-def write_anomaly_score(metric_choice, data_file_forward, data_file_backward,
-                        call, state, test_file, sarif_file, limit=100):
-    """
-
-    :param metric_choice: the metric to use
-    :param data_file_forward: files with forward probabilities
-    :param data_file_backward: files with reverse probabilities
-    :param call: if call probability
-    :param state: if state probability
-    :param test_file: original test file
-    :param sarif_file: sarif files name
-    :param limit: limit the results
-    :return:
-    """
-
-    if call:
-        process_data = data_parser.ProcessCallData(data_file_forward,
-                                                   data_file_backward)
-    elif state:
-        process_data = data_parser.ProcessStateData(data_file_forward,
-                                                    data_file_backward)
-    else:
-        raise AssertionError("Either --call or --state must be set")
-    process_data.data_parser()
-    process_data.apply_aggregation(metric.METRICOPTION[metric_choice])
-
-    # add location information
-    if test_file:
-        location_dict = data_parser.create_location_list(test_file, state)
-        for key, value in process_data.aggregated_data.items():
-            process_data.aggregated_data[key].update(
-                location_dict.get(key, {}))
-
-    # update the state:
-    if state:
-        for key in process_data.aggregated_data:
-            key_split = key.split('--')
-            new_list = []
-            for index in process_data.aggregated_data[key]["Index List"]:
-                in_key = int(key_split[2]) + 1 + index
-                new_list.append(in_key)
-            process_data.aggregated_data[key]["Index List"] = new_list
-    # convert to list
-    data_list = [value for key, value in process_data.aggregated_data.items()]
-    # sorted list
-    data_list = sorted(
-        data_list, key=lambda i: i['Anomaly Score'], reverse=True)
-
-    sarif_data = {"runs": [], "version": "1.0.0"}
-    tool_result = {"tool": {"name": "Salento"}}
-
-    results = []
-    for i, data in enumerate(data_list[0:limit]):
-        converted_data = get_result(data)
-        converted_data["message"] += ", seq id %d" % i
-        results.append(converted_data)
-
-    tool_result["results"] = results
-    sarif_data["runs"].append(tool_result)
-    if sarif_file:
-        with open(sarif_file, 'w') as fwrite:
-            json.dump(sarif_data, fwrite, indent=2)
-    else:
-        print(json.dumps(sarif_data, indent=2))
+    def write_anomaly_score(self, sarif_file, limit=100):
+        """
+        :param sarif_file: sarif files name
+        :return:
+        """
+        self.apply_metric()
+        self.update_location()
+        self.create_sarif_data(limit)
+        if sarif_file:
+            with open(sarif_file, 'w') as fwrite:
+                json.dump(self.sarif_data, fwrite, indent=2)
+        else:
+            print(json.dumps(self.sarif_data, indent=2))
 
 
 if __name__ == "__main__":
@@ -177,7 +207,7 @@ if __name__ == "__main__":
         default=100,
         help="Limit the result to top N anomaly")
     args = parser.parse_args()
-    write_anomaly_score(args.metric_choice, args.data_file_forward,
-                        args.data_file_backward, args.call, args.state,
-                        args.test_file, args.result_file,
-                        args.limit)
+
+    sarif_client = SarifFileGenerator(args.metric_choice, args.data_file_forward,
+                        args.data_file_backward, args.call, args.state, args.test_file)
+    sarif_client.write_anomaly_score(args.result_file, args.limit)
