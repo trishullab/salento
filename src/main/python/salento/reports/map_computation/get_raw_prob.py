@@ -46,7 +46,8 @@ class RawProbAggregator(Aggregator):
             data_file,
             model_dir,
             call_file=None,
-            state_file=None
+            state_file=None,
+            normalize=False
     ):
         """
 
@@ -54,6 +55,7 @@ class RawProbAggregator(Aggregator):
         :param model_dir: directory where model is saved
         :param call_file: files to store call probabilities
         :param state_file: file to store state probabilities
+        :param normalize: Normalize the probability
         """
         Aggregator.__init__(self, data_file, model_dir)
         self.call_probs = {}
@@ -61,6 +63,7 @@ class RawProbAggregator(Aggregator):
         self.call_file = call_file
         self.state_file = state_file
         self.cache = {}
+        self.normalize = normalize
 
     def get_seq_call_prob(self, spec, sequence):
         """
@@ -71,6 +74,7 @@ class RawProbAggregator(Aggregator):
         """
         event_data = {}
         events_len = len(sequence)
+
         for (i, row) in enumerate(
                 self.distribution_call_iter(spec, sequence, cache=self.cache)):
             if i == events_len:
@@ -79,7 +83,11 @@ class RawProbAggregator(Aggregator):
             else:
                 next_call = sequence[i]['call']
                 call_key = str(i) + '--' + sequence[i]['call']
-            event_data[call_key] = float(row.distribution.get(next_call, 0.0))
+            if self.normalize:
+                max_value = float(max(row.distribution.data))
+                event_data[call_key] = float(row.distribution.get(next_call, 0.0))/max_value
+            else:
+                event_data[call_key] = float(row.distribution.get(next_call, 0.0))
         return event_data
 
     def get_state_prob(self, spec, sequence):
@@ -165,7 +173,11 @@ if __name__ == '__main__':
         type=str,
         default=None,
         help='write out the state probability in json file')
-
+    parser.add_argument(
+        '--normalize',
+        type=bool,
+        default=False,
+        help="Normalize the probability (using max of dist?)")
     clargs = parser.parse_args()
 
     if clargs.call_prob_file is None and clargs.state_prob_file is None:
@@ -173,6 +185,7 @@ if __name__ == '__main__':
 
     with RawProbAggregator(clargs.data_file, clargs.model_dir,
                            clargs.call_prob_file,
-                           clargs.state_prob_file) as aggregator:
+                           clargs.state_prob_file,
+                           clargs.normalize) as aggregator:
         aggregator.run()
         aggregator.write_results()
