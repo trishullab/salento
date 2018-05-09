@@ -162,44 +162,29 @@ class ProcessStateData(ProcessData):
         """
         for unit_key in self.forward_prob_data:
             for seq_key in self.forward_prob_data[unit_key]:
-                key_list = self.forward_prob_data[unit_key][seq_key].keys()
-                key_list = sorted(
-                    key_list,
-                    key=lambda x: (int(x.split('--')[0]), x.split('--')[2]))
-                for key in key_list:
-                    value = self.forward_prob_data[unit_key][seq_key][key]
-                    key_split = key.split('--')
-                    key_id = key_split[0]
+                seq_data = self.forward_prob_data[unit_key][seq_key]
+                for i in range(len(seq_data)):
+                    new_seq_key = "%s--%s--%s" % (unit_key, seq_key, i)
+                    state_data = self.forward_prob_data[unit_key][seq_key][str(i)]
+                    self.forward_obj[new_seq_key] = [0] * len(state_data)
+                    self.event_list[new_seq_key] = [0] * len(state_data)
+                    for key, value in state_data.items():
+                        self.forward_obj[new_seq_key][int(key[0])] = value
+                        self.event_list[new_seq_key][int(key[0])] = key
 
-                    new_seq_key = "%s--%s--%s" % (str(unit_key), seq_key,
-                                                  key_id)
-                    if new_seq_key not in self.forward_obj:
-                        self.forward_obj[new_seq_key] = []
-                        self.event_list[new_seq_key] = []
-                    self.forward_obj[new_seq_key].append(value)
-                    self.event_list[new_seq_key].append(key)
         # set the reverse
         if self.reverse_prob_data:
             for unit_key in self.reverse_prob_data:
                 for seq_key in self.reverse_prob_data[unit_key]:
-                    key_list = sorted(
-                        self.reverse_prob_data[unit_key][seq_key].keys(),
-                        key=lambda x: (int(x.split('--')[0]), x.split('--')[2])
-                    )
-                    # get the length sequence
-                    total_states = len(
-                        set([key.split('--')[0] for key in key_list]))
-                    for key in key_list:
-                        value = self.reverse_prob_data[unit_key][seq_key][key]
-                        key_split = key.split('--')
-                        # reverse the key index
-                        key_id = total_states - int(key_split[0]) - 1
-
-                        new_seq_key = "%s--%s--%s" % (str(unit_key), seq_key,
-                                                      str(key_id))
-                        if new_seq_key not in self.reverse_obj:
-                            self.reverse_obj[new_seq_key] = []
-                        self.reverse_obj[new_seq_key].append(value)
+                    seq_data = self.reverse_prob_data[unit_key][seq_key]
+                    seq_len = len(seq_data) - 1
+                    for i in range(seq_len, 0, -1):
+                        new_seq_key = "%s--%s--%s" % (unit_key, seq_key, seq_len - i)
+                        state_data = self.forward_prob_data[unit_key][seq_key][str(i)]
+                        state_len = len(state_data)
+                        self.reverse_obj[new_seq_key] = [0] * state_len
+                        for key, value in state_data.items():
+                            self.reverse_obj[new_seq_key][int(key[0])] = value
             # reverse the states vector
             for key in self.reverse_obj:
                 self.reverse_obj[key].reverse()

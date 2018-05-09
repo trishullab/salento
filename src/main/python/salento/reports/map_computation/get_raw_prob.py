@@ -97,7 +97,7 @@ class RawProbAggregator(Aggregator):
         """
         event_data = {}
         for i, event in enumerate(sequence):
-            call_key = (str(i) + '--' + event['call'])
+            event_data[i] = {}
             last_call_state = copy.deepcopy(event['states'])
             # add the end marker
             last_call_state.append(self.END_MARKER)
@@ -105,9 +105,9 @@ class RawProbAggregator(Aggregator):
             for s_i, st in enumerate(last_call_state):
                 val = self.distribution_next_state(spec, sequence[:i + 1], st,
                                                    self.cache)
-                st_key = call_key + '--' + str(s_i) + "#" + str(st)
+                st_key = str(s_i) + "#" + str(st)
                 sequence[i]["states"].append(st)
-                event_data[st_key] = float(val)
+                event_data[i][st_key] = float(val)
         return event_data
 
     def write_results(self):
