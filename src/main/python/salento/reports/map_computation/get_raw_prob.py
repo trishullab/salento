@@ -79,15 +79,13 @@ class RawProbAggregator(Aggregator):
                 self.distribution_call_iter(spec, sequence, cache=self.cache)):
             if i == events_len:
                 next_call = self.END_MARKER
-                call_key = str(i) + '--' + self.END_MARKER
             else:
                 next_call = sequence[i]['call']
-                call_key = str(i) + '--' + sequence[i]['call']
             if self.normalize:
                 max_value = float(max(row.distribution.data))
-                event_data[call_key] = float(row.distribution.get(next_call, 0.0))/max_value
+                event_data[i] = float(row.distribution.get(next_call, 0.0))/max_value
             else:
-                event_data[call_key] = float(row.distribution.get(next_call, 0.0))
+                event_data[i] = float(row.distribution.get(next_call, 0.0))
         return event_data
 
     def get_state_prob(self, spec, sequence):

@@ -83,7 +83,10 @@ class ProcessData(object):
                                                    reverse_probs)))
             else:
                 combined_probability_vector = forward_probs
-            index_list, score = operator_type(combined_probability_vector)
+            if (len(combined_probability_vector)) == 0:
+                index_list, score = [], 0
+            else:
+                index_list, score = operator_type(combined_probability_vector)
             self.aggregated_data[seq_key] = {
                 "Anomaly Score": score,
                 "Index List": index_list,
@@ -109,24 +112,29 @@ class ProcessCallData(ProcessData):
             b. seq_prob
         """
         for unit_key in self.forward_prob_data:
-            for seq_key in self.forward_prob_data[unit_key]:
-                prob_vector = list(self.forward_prob_data[unit_key][
-                    seq_key].values())
-                event_vector = self.forward_prob_data[unit_key][seq_key].keys()
-                new_seq_key = "%s--%s" % (str(unit_key), seq_key)
+            for seq_key in self.forward_prob_data[unit_key].keys():
+                new_seq_key = "%s--%s" % (unit_key, seq_key)
+                self.event_list[new_seq_key] = []
+                prob_vector = []
+                for i in range(
+                        0, len(
+                            self.forward_prob_data[unit_key][seq_key].keys())):
+                    prob_vector.append(
+                        self.forward_prob_data[unit_key][seq_key][str(i)])
+
                 # ignore the first prob value
                 self.forward_obj[new_seq_key] = prob_vector[1:]
-                self.event_list[new_seq_key] = sorted(
-                    event_vector, key=lambda x: int(x.split('--')[0]))
         # set the reverse
         if self.reverse_prob_data:
             for unit_key in self.reverse_prob_data:
                 for seq_key in self.reverse_prob_data[unit_key]:
-                    # reverse the
-                    new_seq_key = "%s--%s" % (str(unit_key), seq_key)
-                    prob_vector = reversed(
-                        list(self.reverse_prob_data[unit_key][seq_key]
-                             .values()))
+                    prob_vector = []
+                    new_seq_key = "%s--%s" % (unit_key, seq_key)
+                    for i in range(
+                            len(self.reverse_prob_data[unit_key][seq_key]
+                                .keys()), 0, -1):
+                        prob_vector.append(
+                            self.reverse_prob_data[unit_key][seq_key][str[i]])
                     # ignore the first prob value
                     self.reverse_obj[new_seq_key] = prob_vector[1:]
             assert set(self.forward_obj.keys()) == set(

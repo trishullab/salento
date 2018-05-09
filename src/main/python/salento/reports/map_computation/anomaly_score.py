@@ -32,14 +32,16 @@ import argparse
 # project imports
 import metric
 import data_parser
+import collections
 
 
 class SarifFileGenerator(object):
     """
         Class to do Generator Sarif file
     """
+
     def __init__(self, metric_choice, data_file_forward, data_file_backward,
-                            call, state, test_file):
+                 call, state, test_file):
         """
         :param metric_choice: the metric to use
         :param data_file_forward: files with forward probabilities
@@ -51,18 +53,17 @@ class SarifFileGenerator(object):
         self.sarif_data = {"version": "1.0.0", "runs": []}
         # set the process
         if call:
-            self.process_data = data_parser.ProcessCallData(data_file_forward,
-                                                       data_file_backward)
+            self.process_data = data_parser.ProcessCallData(
+                data_file_forward, data_file_backward)
         elif state:
-            self.process_data = data_parser.ProcessStateData(data_file_forward,
-                                                        data_file_backward)
+            self.process_data = data_parser.ProcessStateData(
+                data_file_forward, data_file_backward)
         else:
             raise AssertionError("Either --call or --state must be set")
 
         self.test_file = test_file
         self.state = state
         self.metric = metric.METRICOPTION[metric_choice]
-
 
     def apply_metric(self):
         """
@@ -78,7 +79,8 @@ class SarifFileGenerator(object):
         """
         # add location information
         if self.test_file:
-            location_dict = data_parser.create_location_list(self.test_file, self.state)
+            location_dict = data_parser.create_location_list(
+                self.test_file, self.state)
             for key, value in self.process_data.aggregated_data.items():
                 self.process_data.aggregated_data[key].update(
                     location_dict.get(key, {}))
@@ -88,10 +90,45 @@ class SarifFileGenerator(object):
             for key in self.process_data.aggregated_data:
                 key_split = key.split('--')
                 new_list = []
-                for index in self.process_data.aggregated_data[key]["Index List"]:
+                for index in self.process_data.aggregated_data[key][
+                        "Index List"]:
                     in_key = int(key_split[2]) + 1 + index
                     new_list.append(in_key)
                 self.process_data.aggregated_data[key]["Index List"] = new_list
+
+    def get_all_data(self, filter_proc):
+        """
+            filter out traces that are not in
+        """
+        all_data = self.process_data.aggregated_data
+        if filter_proc is False:
+            return all_data
+
+        # pick the unique keys
+        temp_dict = {}
+        key_dict = {}
+        for key, value in all_data.items():
+            key_base = key.split('--')[0]
+            anomaly = value['Anomaly Score']
+            if key_base not in temp_dict:
+                temp_dict[key_base] = set([])
+                key_dict[key_base] = []
+                key_dict[key_base].append(key)
+                temp_dict[key_base].add(anomaly)
+            else:
+
+                if anomaly not in temp_dict[key_base]:
+                    key_dict[key_base].append(key)
+                    temp_dict[key_base].add(anomaly)
+
+        useful_key = set([])
+        for key, data in key_dict.items():
+            for x in data:
+                useful_key.add(x)
+        return {
+            key: value
+            for key, value in all_data.items() if key in useful_key
+        }
 
     def create_sarif_data(self, limit):
         """
@@ -99,8 +136,8 @@ class SarifFileGenerator(object):
         :param limit:
         :return:
         """
-        # convert to list
-        data_list = [value for key, value in self.process_data.aggregated_data.items()]
+        all_data = self.get_all_data(True)
+        data_list = [value for key, value in all_data.items()]
         # sorted list
         data_list = sorted(
             data_list, key=lambda i: i['Anomaly Score'], reverse=True)
@@ -144,7 +181,8 @@ class SarifFileGenerator(object):
                     })
                 bug_locations.append(bug_point)
             else:
-                error_msg = "Call point %s at trace path seq %d" % (anomaly_data["Calls"][i], i)
+                error_msg = "Call point %s at trace path seq %d" % (
+                    anomaly_data["Calls"][i], i)
             # set the trace point
             trace_point = {
                 "message": error_msg,
@@ -208,6 +246,7 @@ if __name__ == "__main__":
         help="Limit the result to top N anomaly")
     args = parser.parse_args()
 
-    sarif_client = SarifFileGenerator(args.metric_choice, args.data_file_forward,
-                        args.data_file_backward, args.call, args.state, args.test_file)
+    sarif_client = SarifFileGenerator(
+        args.metric_choice, args.data_file_forward, args.data_file_backward,
+        args.call, args.state, args.test_file)
     sarif_client.write_anomaly_score(args.result_file, args.limit)
