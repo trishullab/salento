@@ -102,12 +102,24 @@ class RawProbAggregator(Aggregator):
             # add the end marker
             last_call_state.append(self.END_MARKER)
             sequence[i]["states"] = []
+            # get the dist
+            if self.normalize:
+                dist = self.distribution_next_state(spec, sequence[:i + 1],
+                                                    None)
+
             for s_i, st in enumerate(last_call_state):
+                # cvt to str
+                s_i = str(s_i)
                 val = self.distribution_next_state(spec, sequence[:i + 1], st,
                                                    self.cache)
-                st_key = str(s_i) + "#" + str(st)
+                st_key = s_i + "#" + str(st)
                 sequence[i]["states"].append(st)
-                event_data[i][st_key] = float(val)
+                if self.normalize and st != self.END_MARKER:
+                    valid_probs = [dist[x] for x in dist.keys() if x[0] == s_i]
+                    max_val = max(valid_probs)
+                    event_data[i][st_key] = float(val) / max_val
+                else:
+                    event_data[i][st_key] = float(val)
         return event_data
 
     def write_results(self):
