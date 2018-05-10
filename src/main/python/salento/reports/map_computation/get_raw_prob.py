@@ -29,10 +29,6 @@ from __future__ import print_function
 import argparse
 import json
 import copy
-import os
-import itertools
-import numpy as np
-from operator import itemgetter
 
 from salento.aggregators.base import Aggregator
 
@@ -105,7 +101,8 @@ class RawProbAggregator(Aggregator):
             # get the dist
             if self.normalize:
                 dist = self.distribution_next_state(spec, sequence[:i + 1],
-                                                    None)
+                                                    None, self.cache)
+                max_value =  max([dist[x] for x in dist.keys()])
 
             for s_i, st in enumerate(last_call_state):
                 # cvt to str
@@ -114,10 +111,8 @@ class RawProbAggregator(Aggregator):
                                                    self.cache)
                 st_key = s_i + "#" + str(st)
                 sequence[i]["states"].append(st)
-                if self.normalize and st != self.END_MARKER:
-                    valid_probs = [dist[x] for x in dist.keys() if x[0] == s_i]
-                    max_val = max(valid_probs)
-                    event_data[i][st_key] = float(val) / max_val
+                if self.normalize:
+                    event_data[i][st_key] = float(val) / max_value
                 else:
                     event_data[i][st_key] = float(val)
         return event_data
