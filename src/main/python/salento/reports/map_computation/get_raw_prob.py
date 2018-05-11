@@ -29,6 +29,7 @@ from __future__ import print_function
 import argparse
 import json
 import copy
+import os
 
 from salento.aggregators.base import Aggregator
 
@@ -60,6 +61,16 @@ class RawProbAggregator(Aggregator):
         self.state_file = state_file
         self.cache = {}
         self.normalize = normalize
+        self.state_chars = set()
+        # set up the valid state chars
+        if normalize:
+            config_file = os.path.join(model_dir, 'config.json')
+            with open(config_file, 'r') as fread:
+                config = json.load(fread)
+                for chars in config["decoder"]["chars"]:
+                    # XXX assumption that state vocab will have #
+                    if '#' in chars:
+                        self.state_chars.add(chars)
 
     def get_seq_call_prob(self, spec, sequence):
         """
@@ -98,23 +109,38 @@ class RawProbAggregator(Aggregator):
             # add the end marker
             last_call_state.append(self.END_MARKER)
             sequence[i]["states"] = []
-            # get the dist
-            if self.normalize:
-                dist = self.distribution_next_state(spec, sequence[:i + 1],
-                                                    None, self.cache)
-                max_value =  max([dist[x] for x in dist.keys()])
 
-            for s_i, st in enumerate(last_call_state):
+            for state_index, state_value in enumerate(last_call_state):
                 # cvt to str
-                s_i = str(s_i)
-                val = self.distribution_next_state(spec, sequence[:i + 1], st,
+                state_index = str(state_index)
+                state_value_str = str(state_value)
+                expected_probability = self.distribution_next_state(spec, sequence[:i + 1], state_value,
                                                    self.cache)
-                st_key = s_i + "#" + str(st)
-                sequence[i]["states"].append(st)
+                st_key = state_index + "#" + state_value_str
                 if self.normalize:
-                    event_data[i][st_key] = float(val) / max_value
+                    # all the possible probs to get the max value
+                    # step 1 : add the current state prob
+                    valid_probs = [expected_probability]
+                    # Step 2 : get the end marker prob if current state is end marker then skip
+                    if state_value != self.END_MARKER:
+                        valid_probs.append(self.distribution_next_state(
+                            spec, sequence[:i + 1], self.END_MARKER, self.cache))
+                    # Step 3 : Get probability for all other possible state values at this index
+                    for x in self.state_chars:
+                        x_state, x_value = x.split('#')
+                        # if the state is same and value is different
+                        if x != st_key and x_state == state_index:
+                            valid_probs.append(self.distribution_next_state(
+                                spec, sequence[:i + 1], x_value, self.cache))
+                    # max value
+                    max_value = max(valid_probs)
+                    # normalize the value
+                    event_data[i][st_key] = float(expected_probability) / max_value
                 else:
-                    event_data[i][st_key] = float(val)
+                    event_data[i][st_key] = float(expected_probability)
+                # add the last state value
+                sequence[i]["states"].append(state_value)
+
         return event_data
 
     def write_results(self):
