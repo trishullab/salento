@@ -83,10 +83,8 @@ class ProcessData(object):
                                                    reverse_probs)))
             else:
                 combined_probability_vector = forward_probs
-            if (len(combined_probability_vector)) == 0:
-                index_list, score = [], 0
-            else:
-                index_list, score = operator_type(combined_probability_vector)
+
+            index_list, score = operator_type(combined_probability_vector)
             self.aggregated_data[seq_key] = {
                 "Anomaly Score": score,
                 "Index List": index_list,
@@ -116,12 +114,9 @@ class ProcessCallData(ProcessData):
                 new_seq_key = "%s--%s" % (unit_key, seq_key)
                 self.event_list[new_seq_key] = []
                 prob_vector = []
-                for i in range(
-                        0, len(
-                            self.forward_prob_data[unit_key][seq_key].keys())):
-                    prob_vector.append(
-                        self.forward_prob_data[unit_key][seq_key][str(i)])
-
+                data_vector = self.forward_prob_data[unit_key][seq_key]
+                for i in range(len(data_vector)):
+                    prob_vector.append(data_vector[str(i)])
                 # ignore the first prob value
                 self.forward_obj[new_seq_key] = prob_vector[1:]
         # set the reverse
@@ -130,11 +125,10 @@ class ProcessCallData(ProcessData):
                 for seq_key in self.reverse_prob_data[unit_key]:
                     prob_vector = []
                     new_seq_key = "%s--%s" % (unit_key, seq_key)
+                    data_vector = self.reverse_prob_data[unit_key][seq_key]
                     for i in range(
-                            len(self.reverse_prob_data[unit_key][seq_key]
-                                .keys()), 0, -1):
-                        prob_vector.append(
-                            self.reverse_prob_data[unit_key][seq_key][str[i]])
+                            len(data_vector)-1, -1, -1):
+                        prob_vector.append(data_vector[str(i)])
                     # ignore the first prob value
                     self.reverse_obj[new_seq_key] = prob_vector[1:]
             assert set(self.forward_obj.keys()) == set(
@@ -177,10 +171,10 @@ class ProcessStateData(ProcessData):
             for unit_key in self.reverse_prob_data:
                 for seq_key in self.reverse_prob_data[unit_key]:
                     seq_data = self.reverse_prob_data[unit_key][seq_key]
-                    seq_len = len(seq_data) - 1
-                    for i in range(seq_len, 0, -1):
-                        new_seq_key = "%s--%s--%s" % (unit_key, seq_key, seq_len - i)
-                        state_data = self.forward_prob_data[unit_key][seq_key][str(i)]
+                    seq_len = len(seq_data)
+                    for i in range(seq_len-1, -1, -1):
+                        new_seq_key = "%s--%s--%s" % (unit_key, seq_key, seq_len-1-i)
+                        state_data = seq_data[str(i)]
                         state_len = len(state_data)
                         self.reverse_obj[new_seq_key] = [0] * state_len
                         for key, value in state_data.items():
@@ -228,7 +222,6 @@ def create_location_list(test_file, state=False):
                         call_list.insert(i + l + 1, state_id)
 
                     new_seq_key = "%s--%s--%s" % (str(k), str(j), str(i))
-
                     location_dict[new_seq_key] = {
                         "Location": location_list,
                         "Calls": call_list

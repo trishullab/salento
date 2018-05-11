@@ -81,6 +81,7 @@ class SarifFileGenerator(object):
         if self.test_file:
             location_dict = data_parser.create_location_list(
                 self.test_file, self.state)
+
             for key, value in self.process_data.aggregated_data.items():
                 self.process_data.aggregated_data[key].update(
                     location_dict.get(key, {}))
@@ -130,13 +131,13 @@ class SarifFileGenerator(object):
             for key, value in all_data.items() if key in useful_key
         }
 
-    def create_sarif_data(self, limit):
+    def create_sarif_data(self, limit, filter_proc):
         """
         create sarif acceptable data
         :param limit:
         :return:
         """
-        all_data = self.get_all_data(True)
+        all_data = self.get_all_data(filter_proc)
         data_list = [value for key, value in all_data.items()]
         # sorted list
         data_list = sorted(
@@ -146,9 +147,13 @@ class SarifFileGenerator(object):
         tool_result = {"tool": {"name": "Salento"}}
         results = []
         for i, data in enumerate(data_list):
-            converted_data = self.cvt_trace_to_sarif(data)
-            converted_data["message"] += ", seq id %d" % i
-            results.append(converted_data)
+            try:
+                converted_data = self.cvt_trace_to_sarif(data)
+                converted_data["message"] += ", seq id %d" % i
+                results.append(converted_data)
+            except:
+                pass
+
 
         tool_result["results"] = results
         self.sarif_data["runs"].append(tool_result)
@@ -201,14 +206,14 @@ class SarifFileGenerator(object):
         sarif_results["locations"] = bug_locations
         return sarif_results
 
-    def write_anomaly_score(self, sarif_file, limit=100):
+    def write_anomaly_score(self, sarif_file, limit=100, filter_proc=False):
         """
         :param sarif_file: sarif files name
         :return:
         """
         self.apply_metric()
         self.update_location()
-        self.create_sarif_data(limit)
+        self.create_sarif_data(limit, filter_proc)
         if sarif_file:
             with open(sarif_file, 'w') as fwrite:
                 json.dump(self.sarif_data, fwrite, indent=2)
@@ -244,9 +249,11 @@ if __name__ == "__main__":
         type=int,
         default=100,
         help="Limit the result to top N anomaly")
+    parser.add_argument(
+        '--filter_proc', type=bool, default=False, help="Set True to filter use unique anomaly per procedure")
     args = parser.parse_args()
 
     sarif_client = SarifFileGenerator(
         args.metric_choice, args.data_file_forward, args.data_file_backward,
         args.call, args.state, args.test_file)
-    sarif_client.write_anomaly_score(args.result_file, args.limit)
+    sarif_client.write_anomaly_score(args.result_file, args.limit, args.filter_proc)
