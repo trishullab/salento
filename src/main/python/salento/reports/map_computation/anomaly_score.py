@@ -29,6 +29,7 @@
 
 import json
 import argparse
+import gc
 # project imports
 import metric
 import data_parser
@@ -72,20 +73,6 @@ class SarifFileGenerator(object):
         """
         self.process_data.data_parser()
         self.process_data.apply_aggregation(self.metric)
-
-    def update_location(self):
-        """
-            update location
-        """
-        # add location information
-        if self.test_file:
-            location_dict = data_parser.create_location_list(
-                self.test_file, self.state)
-
-            for key, value in self.process_data.aggregated_data.items():
-                self.process_data.aggregated_data[key].update(
-                    location_dict.get(key, {}))
-
         # update the state:
         if self.state:
             for key in self.process_data.aggregated_data:
@@ -96,6 +83,17 @@ class SarifFileGenerator(object):
                     in_key = int(key_split[2]) + 1 + index
                     new_list.append(in_key)
                 self.process_data.aggregated_data[key]["Index List"] = new_list
+
+    def update_location(self, valid_key=None):
+        """
+            update location
+        """
+        # add location information
+        location_dict = {}
+        if self.test_file:
+            location_dict = data_parser.create_location_list(
+                self.test_file, self.state, valid_key)
+        return location_dict
 
     def get_all_data(self, filter_proc):
         """
@@ -138,14 +136,27 @@ class SarifFileGenerator(object):
         :return:
         """
         all_data = self.get_all_data(filter_proc)
-        data_list = [value for key, value in all_data.items()]
+        # remove
+        del self.process_data
+        gc.collect()
+        data_list = []
+        for key, value in all_data.items():
+            value["key"] = key
+            data_list.append(value)
         # sorted list
         data_list = sorted(
             data_list, key=lambda i: i['Anomaly Score'], reverse=True)
-
         data_list = data_list[0:limit]
+        # add location to the top results
+        valid_keys = set([entry["key"] for entry in data_list])
+        location_dict = self.update_location(valid_keys)
+        for entry in data_list:
+            entry.update(location_dict.get(entry["key"], {}))
+        gc.collect()
+
         tool_result = {"tool": {"name": "Salento"}}
         results = []
+
         for i, data in enumerate(data_list):
             try:
                 converted_data = self.cvt_trace_to_sarif(data)
@@ -153,7 +164,6 @@ class SarifFileGenerator(object):
                 results.append(converted_data)
             except:
                 pass
-
 
         tool_result["results"] = results
         self.sarif_data["runs"].append(tool_result)
@@ -212,7 +222,7 @@ class SarifFileGenerator(object):
         :return:
         """
         self.apply_metric()
-        self.update_location()
+
         self.create_sarif_data(limit, filter_proc)
         if sarif_file:
             with open(sarif_file, 'w') as fwrite:
