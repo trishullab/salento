@@ -83,6 +83,8 @@ def train(clargs):
 
     with tf.Session() as sess:
         tf.global_variables_initializer().run()
+        train_writer = tf.summary.FileWriter(
+        './logs/train', sess.graph)
         saver = tf.train.Saver(tf.global_variables(), max_to_keep=None)
         tf.train.write_graph(sess.graph_def, clargs.save, 'model.pbtxt')
         tf.train.write_graph(sess.graph_def, clargs.save, 'model.pb', as_text=False)
@@ -93,12 +95,13 @@ def train(clargs):
             saver.restore(sess, ckpt.model_checkpoint_path)
 
         # training
+        counter = 0
         for i in range(config.num_epochs):
             reader.reset_batches()
             avg_loss = avg_evidence = avg_latent = avg_generation = 0
             for b in range(config.num_batches):
                 start = time.time()
-
+                counter += 1
                 # setup the feed dict
                 ev_data, n, e, y = reader.next_batch()
                 feed = {model.targets: y}
@@ -108,15 +111,18 @@ def train(clargs):
                     feed[model.decoder.nodes[j].name] = n[j]
                     feed[model.decoder.edges[j].name] = e[j]
 
+                merge = tf.summary.merge_all()
                 # run the optimizer
-                loss, evidence, latent, generation, mean, covariance, _ \
-                    = sess.run([model.loss,
+                summary, loss, evidence, latent, generation, mean, covariance, _ \
+                    = sess.run([merge, model.loss,
                                 model.evidence_loss,
                                 model.latent_loss,
                                 model.gen_loss,
                                 model.encoder.psi_mean,
                                 model.encoder.psi_covariance,
                                 model.train_op], feed)
+
+                train_writer.add_summary(summary, counter)
                 end = time.time()
                 avg_loss += np.mean(loss)
                 avg_evidence += np.mean(evidence)
