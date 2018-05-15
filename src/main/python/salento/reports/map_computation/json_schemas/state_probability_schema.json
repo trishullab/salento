@@ -1,0 +1,34 @@
+{
+    "title": "Schema File for representation of the probability values",
+    "type": "object",
+    "properties": {
+        "": {
+            "type": "object",
+            "description": "Each Procedure/Project",
+            "properties": {
+                "": {
+                    "type": "object",
+                    "description": "Each Sequence in the procedure",
+                    "properties": {
+                        "" : {
+                            "type": "object",
+                            "description": "Each Call",
+                            "properties": {
+                                "": {
+                                    "type": "object",
+                                    "description": "Each State",
+                                    "properties": {
+                                        "" : {
+                                            "type": "number",
+                                            "description": "raw probability values"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
