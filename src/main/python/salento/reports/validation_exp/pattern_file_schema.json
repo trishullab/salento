@@ -1,0 +1,47 @@
+{
+    "title": "JSON schema for good and bad pattern traces",
+    "type": "object",
+    "properties": {
+        "event": {
+            "type": "string",
+            "description": "choose between calls and states",
+            "enum": ["call", "state"]
+            },
+        "traces": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "description": "Representation of a sequence of API calls",
+                "properties": {
+                    "sequence": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "description": "Representation of a single API call",
+                            "properties": {
+                                "call": {
+                                    "type": "string",
+                                    "description": "Unique API identifier describing the function being called"
+                                },
+                                "states": {
+                                    "type": "array",
+                                    "description": "Boolean vector abstracting program state at this call site",
+                                    "items": {
+                                        "type" : "number"
+                                    }
+                                },
+                                "location": {
+                                    "type": "string",
+                                    "description": "Program location of the call site"
+                                }
+                            },
+                            "required": ["call", "states"]
+                        }
+                    }
+                },
+                "required": ["sequence"]
+            }
+        }
+    },
+    "required": ["event", "traces"]
+}
