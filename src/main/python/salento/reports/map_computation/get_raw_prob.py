@@ -30,9 +30,6 @@ import argparse
 import json
 import copy
 import os
-import itertools
-import numpy as np
-from operator import itemgetter
 
 from salento.aggregators.base import Aggregator
 
@@ -46,7 +43,8 @@ class RawProbAggregator(Aggregator):
             data_file,
             model_dir,
             call_file=None,
-            state_file=None
+            state_file=None,
+            normalize=False
     ):
         """
 
@@ -54,6 +52,7 @@ class RawProbAggregator(Aggregator):
         :param model_dir: directory where model is saved
         :param call_file: files to store call probabilities
         :param state_file: file to store state probabilities
+        :param normalize: Normalize the probability
         """
         Aggregator.__init__(self, data_file, model_dir)
         self.call_probs = {}
@@ -61,6 +60,17 @@ class RawProbAggregator(Aggregator):
         self.call_file = call_file
         self.state_file = state_file
         self.cache = {}
+        self.normalize = normalize
+        self.state_chars = set()
+        # set up the valid state chars
+        if normalize:
+            config_file = os.path.join(model_dir, 'config.json')
+            with open(config_file, 'r') as fread:
+                config = json.load(fread)
+                for chars in config["decoder"]["chars"]:
+                    # XXX assumption that state vocab will have #
+                    if '#' in chars:
+                        self.state_chars.add(chars)
 
     def get_seq_call_prob(self, spec, sequence):
         """
@@ -71,15 +81,18 @@ class RawProbAggregator(Aggregator):
         """
         event_data = {}
         events_len = len(sequence)
+
         for (i, row) in enumerate(
                 self.distribution_call_iter(spec, sequence, cache=self.cache)):
             if i == events_len:
                 next_call = self.END_MARKER
-                call_key = str(i) + '--' + self.END_MARKER
             else:
                 next_call = sequence[i]['call']
-                call_key = str(i) + '--' + sequence[i]['call']
-            event_data[call_key] = float(row.distribution.get(next_call, 0.0))
+            if self.normalize:
+                max_value = float(max(row.distribution.data))
+                event_data[i] = float(row.distribution.get(next_call, 0.0))/max_value
+            else:
+                event_data[i] = float(row.distribution.get(next_call, 0.0))
         return event_data
 
     def get_state_prob(self, spec, sequence):
@@ -91,17 +104,43 @@ class RawProbAggregator(Aggregator):
         """
         event_data = {}
         for i, event in enumerate(sequence):
-            call_key = (str(i) + '--' + event['call'])
+            event_data[i] = {}
             last_call_state = copy.deepcopy(event['states'])
             # add the end marker
             last_call_state.append(self.END_MARKER)
             sequence[i]["states"] = []
-            for s_i, st in enumerate(last_call_state):
-                val = self.distribution_next_state(spec, sequence[:i + 1], st,
+
+            for state_index, state_value in enumerate(last_call_state):
+                # cvt to str
+                state_index = str(state_index)
+                state_value_str = str(state_value)
+                expected_probability = self.distribution_next_state(spec, sequence[:i + 1], state_value,
                                                    self.cache)
-                st_key = call_key + '--' + str(s_i) + "#" + str(st)
-                sequence[i]["states"].append(st)
-                event_data[st_key] = float(val)
+                st_key = state_index + "#" + state_value_str
+                if self.normalize:
+                    # all the possible probs to get the max value
+                    # step 1 : add the current state prob
+                    valid_probs = [expected_probability]
+                    # Step 2 : get the end marker prob if current state is end marker then skip
+                    if state_value != self.END_MARKER:
+                        valid_probs.append(self.distribution_next_state(
+                            spec, sequence[:i + 1], self.END_MARKER, self.cache))
+                    # Step 3 : Get probability for all other possible state values at this index
+                    for x in self.state_chars:
+                        x_state, x_value = x.split('#')
+                        # if the state is same and value is different
+                        if x != st_key and x_state == state_index:
+                            valid_probs.append(self.distribution_next_state(
+                                spec, sequence[:i + 1], x_value, self.cache))
+                    # max value
+                    max_value = max(valid_probs)
+                    # normalize the value
+                    event_data[i][st_key] = float(expected_probability) / max_value
+                else:
+                    event_data[i][st_key] = float(expected_probability)
+                # add the last state value
+                sequence[i]["states"].append(state_value)
+
         return event_data
 
     def write_results(self):
@@ -165,7 +204,11 @@ if __name__ == '__main__':
         type=str,
         default=None,
         help='write out the state probability in json file')
-
+    parser.add_argument(
+        '--normalize',
+        type=bool,
+        default=False,
+        help="Normalize the probability (using max of dist?)")
     clargs = parser.parse_args()
 
     if clargs.call_prob_file is None and clargs.state_prob_file is None:
@@ -173,6 +216,7 @@ if __name__ == '__main__':
 
     with RawProbAggregator(clargs.data_file, clargs.model_dir,
                            clargs.call_prob_file,
-                           clargs.state_prob_file) as aggregator:
+                           clargs.state_prob_file,
+                           clargs.normalize) as aggregator:
         aggregator.run()
         aggregator.write_results()

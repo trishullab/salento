@@ -85,6 +85,11 @@ def main():
         help="Choose the metric to be applied")
     parser.add_argument(
         '--result_file', type=str, help="File to write the anomaly score")
+    parser.add_argument(
+        '--normalize',
+        type=bool,
+        default=False,
+        help="Normalize the probability (using max of dist?)")
 
     args = parser.parse_args()
     # check the arguments and set the necessary ones
@@ -129,12 +134,14 @@ def main():
     if args.model_forward:
         cmd = [
             "python3", get_raw_prob_py, '--data_file', forward_evidence_file,
-            '--model_dir', args.model_forward
+            '--model_dir', args.model_forward,
+            '--normalize', args.normalize
         ]
         if args.call:
             cmd += ['--call_prob_file', prob_file_forward]
         elif args.state:
             cmd += ['--state_prob_file', prob_file_forward]
+
         logger.info("Extract Forward Probabilities")
         run_cmd(cmd, log_file)
     # get reverse probability
@@ -153,7 +160,8 @@ def main():
         prob_file_reverse = "/tmp/prob_file_reverse.json"
         cmd = [
             "python3", get_raw_prob_py, '--data_file', reverse_evidence_file,
-            '--model_dir', args.model_reverse
+            '--model_dir', args.model_reverse,
+            '--normalize', args.normalize
         ]
         if args.call:
             cmd += ['--call_prob_file', prob_file_reverse]
@@ -163,13 +171,14 @@ def main():
         run_cmd(cmd, log_file)
     # compute the anomaly score
     logger.info("Write out the anomaly Output")
-    anomaly_score.write_anomaly_score(args.metric_choice,
-                                      prob_file_forward,
-                                      prob_file_reverse,
-                                      args.call,
-                                      args.state,
-                                      args.test_file,
-                                      args.result_file)
+    sarif_client = anomaly_score.SarifFileGenerator(
+        args.metric_choice,
+        prob_file_forward,
+        prob_file_reverse,
+        args.call,
+        args.state,
+        args.test_file)
+    sarif_client.write_anomaly_score(args.result_file)
 
     # clean up the tmp files
     os.remove(forward_evidence_file)

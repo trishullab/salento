@@ -57,6 +57,7 @@ class ProcessData(object):
         self.aggregated_data = {}
         # call or state events list for the sequence
         self.event_list = {}
+        self.call = None
 
     def data_parser(self):
         """
@@ -83,7 +84,14 @@ class ProcessData(object):
                                                    reverse_probs)))
             else:
                 combined_probability_vector = forward_probs
-            index_list, score = operator_type(combined_probability_vector)
+            # ignore the first prob value
+            if self.call:
+                index_list, score = operator_type(combined_probability_vector[1:])
+                # add +1 to index to account for not using first prob
+                index_list = [x + 1 for x in index_list]
+            else:
+                index_list, score = operator_type(combined_probability_vector)
+
             self.aggregated_data[seq_key] = {
                 "Anomaly Score": score,
                 "Index List": index_list,
@@ -101,6 +109,7 @@ class ProcessCallData(ProcessData):
         :param reverse_prob_file: file with reverse probability
         """
         ProcessData.__init__(self, forward_prob_file, reverse_prob_file)
+        self.call = True
 
     def data_parser(self):
         """
@@ -109,23 +118,26 @@ class ProcessCallData(ProcessData):
             b. seq_prob
         """
         for unit_key in self.forward_prob_data:
-            for seq_key in self.forward_prob_data[unit_key]:
-                prob_vector = self.forward_prob_data[unit_key][
-                    seq_key].values()
-                event_vector = self.forward_prob_data[unit_key][seq_key].keys()
-                new_seq_key = "%s--%s" % (str(unit_key), seq_key)
+            for seq_key in self.forward_prob_data[unit_key].keys():
+                new_seq_key = "%s--%s" % (unit_key, seq_key)
+                self.event_list[new_seq_key] = []
+                prob_vector = []
+                data_vector = self.forward_prob_data[unit_key][seq_key]
+                for i in range(len(data_vector)):
+                    prob_vector.append(data_vector[str(i)])
+
                 self.forward_obj[new_seq_key] = prob_vector
-                self.event_list[new_seq_key] = sorted(
-                    event_vector, key=lambda x: int(x.split('--')[0]))
         # set the reverse
         if self.reverse_prob_data:
             for unit_key in self.reverse_prob_data:
                 for seq_key in self.reverse_prob_data[unit_key]:
-                    # reverse the
-                    new_seq_key = "%s--%s" % (str(unit_key), seq_key)
-                    prob_vector = reversed(
-                        list(self.reverse_prob_data[unit_key][seq_key]
-                             .values()))
+                    prob_vector = []
+                    new_seq_key = "%s--%s" % (unit_key, seq_key)
+                    data_vector = self.reverse_prob_data[unit_key][seq_key]
+                    for i in range(
+                            len(data_vector)-1, -1, -1):
+                        prob_vector.append(data_vector[str(i)])
+                    # ignore the first prob value
                     self.reverse_obj[new_seq_key] = prob_vector
             assert set(self.forward_obj.keys()) == set(
                 self.reverse_obj.keys()), "Incompatible datasets"
@@ -152,57 +164,45 @@ class ProcessStateData(ProcessData):
         """
         for unit_key in self.forward_prob_data:
             for seq_key in self.forward_prob_data[unit_key]:
-                key_list = self.forward_prob_data[unit_key][seq_key].keys()
-                key_list = sorted(
-                    key_list,
-                    key=lambda x: (int(x.split('--')[0]), x.split('--')[2]))
-                for key in key_list:
-                    value = self.forward_prob_data[unit_key][seq_key][key]
-                    key_split = key.split('--')
-                    key_id = key_split[0]
+                seq_data = self.forward_prob_data[unit_key][seq_key]
+                for i in range(len(seq_data)):
+                    new_seq_key = "%s--%s--%s" % (unit_key, seq_key, i)
+                    state_data = self.forward_prob_data[unit_key][seq_key][str(i)]
+                    self.forward_obj[new_seq_key] = [0] * len(state_data)
+                    self.event_list[new_seq_key] = [0] * len(state_data)
+                    for key, value in state_data.items():
+                        self.forward_obj[new_seq_key][int(key[0])] = value
+                        self.event_list[new_seq_key][int(key[0])] = key
 
-                    new_seq_key = "%s--%s--%s" % (str(unit_key), seq_key,
-                                                  key_id)
-                    if new_seq_key not in self.forward_obj:
-                        self.forward_obj[new_seq_key] = []
-                        self.event_list[new_seq_key] = []
-                    self.forward_obj[new_seq_key].append(value)
-                    self.event_list[new_seq_key].append(key)
         # set the reverse
         if self.reverse_prob_data:
             for unit_key in self.reverse_prob_data:
                 for seq_key in self.reverse_prob_data[unit_key]:
-                    key_list = sorted(
-                        self.reverse_prob_data[unit_key][seq_key].keys(),
-                        key=lambda x: (int(x.split('--')[0]), x.split('--')[2])
-                    )
-                    # get the length sequence
-                    total_states = len(
-                        set([key.split('--')[0] for key in key_list]))
-                    for key in key_list:
-                        value = self.reverse_prob_data[unit_key][seq_key][key]
-                        key_split = key.split('--')
-                        # reverse the key index
-                        key_id = total_states - int(key_split[0]) - 1
-
-                        new_seq_key = "%s--%s--%s" % (str(unit_key), seq_key,
-                                                      str(key_id))
-                        if new_seq_key not in self.reverse_obj:
-                            self.reverse_obj[new_seq_key] = []
-                        self.reverse_obj[new_seq_key].append(value)
+                    seq_data = self.reverse_prob_data[unit_key][seq_key]
+                    seq_len = len(seq_data)
+                    for i in range(seq_len-1, -1, -1):
+                        new_seq_key = "%s--%s--%s" % (unit_key, seq_key, seq_len-1-i)
+                        state_data = seq_data[str(i)]
+                        state_len = len(state_data)
+                        self.reverse_obj[new_seq_key] = [0] * state_len
+                        for key, value in state_data.items():
+                            self.reverse_obj[new_seq_key][int(key[0])] = value
             # reverse the states vector
             for key in self.reverse_obj:
                 self.reverse_obj[key].reverse()
             # check if the keys match
             assert set(self.forward_obj.keys()) == set(
-                self.reverse_obj.keys()), "Incompatible datasets"
+                self.reverse_obj.keys()), "Incompatible datasets" + str(set(self.forward_obj.keys()) - set(
+                self.reverse_obj.keys()), set(self.reverse_obj.keys()) - set(
+                self.forward_obj.keys()))
 
 
-def create_location_list(test_file, state=False):
+def create_location_list(test_file, state=False, key_list=None):
     """
     create a mapping for the location
     :param state: set true if the data has state information
     :param test_file: salento acceptable json file
+    :param key_list : create a dictionary put of filtered traces only
     :return: dict with location information
     """
     location_dict = {}
@@ -213,6 +213,9 @@ def create_location_list(test_file, state=False):
         for j, sequence in enumerate(proc["data"]):
             if state:
                 for i, event in enumerate(sequence["sequence"]):
+                    new_seq_key = "%s--%s--%s" % (str(k), str(j), str(i))
+                    if key_list and new_seq_key not in key_list:
+                        continue
                     location_list = [
                         event["location"] for event in sequence["sequence"]
                     ]
@@ -232,13 +235,14 @@ def create_location_list(test_file, state=False):
                         location_list.insert(i + l + 1, location)
                         call_list.insert(i + l + 1, state_id)
 
-                    new_seq_key = "%s--%s--%s" % (str(k), str(j), str(i))
-
                     location_dict[new_seq_key] = {
                         "Location": location_list,
                         "Calls": call_list
                     }
             else:
+                key = str(k) + "--" + str(j)
+                if key_list and key not in key_list:
+                    continue
                 location_list = [
                     event["location"] for event in sequence["sequence"]
                 ]
@@ -247,7 +251,7 @@ def create_location_list(test_file, state=False):
                 call_list.append(END_MARKER)
                 # add last location
                 location_list.append(location_list[-1])
-                key = str(k) + "--" + str(j)
+
                 location_dict[key] = {
                     "Location": location_list,
                     "Calls": call_list
