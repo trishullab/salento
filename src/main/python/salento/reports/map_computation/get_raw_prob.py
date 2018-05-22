@@ -88,11 +88,16 @@ class RawProbAggregator(Aggregator):
                 next_call = self.END_MARKER
             else:
                 next_call = sequence[i]['call']
+            prob = float(row.distribution.get(next_call, 0.0))
             if self.normalize:
-                max_value = float(max(row.distribution.data))
-                event_data[i] = float(row.distribution.get(next_call, 0.0))/max_value
+                max_value, max_token = max(zip(row.distribution.data, row.distribution.id_to_term), key=lambda x: x[0])
+                event_data[i] = {
+                    "prob": prob,
+                    "max_value": float(max_value),
+                    "max_token": str(max_token),
+                }
             else:
-                event_data[i] = float(row.distribution.get(next_call, 0.0))
+                event_data[i] = prob
         return event_data
 
     def get_state_prob(self, spec, sequence):
@@ -121,10 +126,12 @@ class RawProbAggregator(Aggregator):
                     # all the possible probs to get the max value
                     # step 1 : add the current state prob
                     valid_probs = [expected_probability]
+                    valid_state = [st_key]
                     # Step 2 : get the end marker prob if current state is end marker then skip
                     if state_value != self.END_MARKER:
                         valid_probs.append(self.distribution_next_state(
                             spec, sequence[:i + 1], self.END_MARKER, self.cache))
+                        valid_state.append(self.END_MARKER)
                     # Step 3 : Get probability for all other possible state values at this index
                     for x in self.state_chars:
                         x_state, x_value = x.split('#')
@@ -132,10 +139,15 @@ class RawProbAggregator(Aggregator):
                         if x != st_key and x_state == state_index:
                             valid_probs.append(self.distribution_next_state(
                                 spec, sequence[:i + 1], x_value, self.cache))
+                            valid_state.append(x)
                     # max value
-                    max_value = max(valid_probs)
-                    # normalize the value
-                    event_data[i][st_key] = float(expected_probability) / max_value
+                    max_value, max_token = max(zip(valid_probs, valid_state),
+                                               key=lambda x: x[0])
+                    event_data[i] = {
+                        "prob": float(expected_probability),
+                        "max_value": float(max_value),
+                        "max_token": str(max_token)
+                    }
                 else:
                     event_data[i][st_key] = float(expected_probability)
                 # add the last state value
