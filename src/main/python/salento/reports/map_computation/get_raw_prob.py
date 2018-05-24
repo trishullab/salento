@@ -143,7 +143,7 @@ class RawProbAggregator(Aggregator):
                     # max value
                     max_value, max_token = max(zip(valid_probs, valid_state),
                                                key=lambda x: x[0])
-                    event_data[i] = {
+                    event_data[i][st_key] =  {
                         "prob": float(expected_probability),
                         "max_value": float(max_value),
                         "max_token": str(max_token)
