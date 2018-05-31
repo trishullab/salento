@@ -33,7 +33,6 @@ import gc
 # project imports
 import metric
 import data_parser
-import collections
 
 
 class SarifFileGenerator(object):
@@ -63,6 +62,7 @@ class SarifFileGenerator(object):
             raise AssertionError("Either --call or --state must be set")
 
         self.test_file = test_file
+        self.call = call
         self.state = state
         self.metric = metric.METRICOPTION[metric_choice]
 
@@ -156,15 +156,15 @@ class SarifFileGenerator(object):
 
         tool_result = {"tool": {"name": "Salento"}}
         results = []
-
+        count = 0
         for i, data in enumerate(data_list):
             try:
                 converted_data = self.cvt_trace_to_sarif(data)
-                converted_data["message"] += ", seq id %d" % i
                 results.append(converted_data)
             except:
+                count += 1
                 pass
-
+        print("Error in %d out of %d" % (count, len(data_list)))
         tool_result["results"] = results
         self.sarif_data["runs"].append(tool_result)
 
@@ -175,18 +175,23 @@ class SarifFileGenerator(object):
         :return: dictionary containing sarif result
         """
 
-        message = "Anomaly Score is %f, Probability Vector %s" % \
-                  (anomaly_data["Anomaly Score"], str(anomaly_data["Probability"]))
+        bug_index = set(anomaly_data["Index List"])
+        if len(bug_index) == 1:
+            index = str(anomaly_data["Index List"][0] + 1)
+        else:
+            index = ",".join([index_val + 1 for index_val in bug_index])
+        message = "Anomaly Score is %f, Lowest prob. event in trace below: %s" % \
+                  (anomaly_data["Anomaly Score"], index)
         sarif_results = {"codeFlows": [], "locations": [], "message": message}
         # set code flow
         codeflow_locations = {"locations": []}
         bug_locations = []
-        bug_index = set(anomaly_data["Index List"])
+
         for i, loc in enumerate(anomaly_data["Location"]):
             loc_split = loc.split(":")
+            event = anomaly_data["Calls"][i]
             # set the bug point
             if i in bug_index:
-                error_msg = "Anomalous Usage at %s" % anomaly_data["Calls"][i]
                 bug_point = dict(
                     resultFile={
                         "uri": "file://" + loc_split[0],
@@ -195,9 +200,18 @@ class SarifFileGenerator(object):
                         }
                     })
                 bug_locations.append(bug_point)
+            # update the index to get the correct probability
+            if self.state:
+                if "#" in event:
+                    state_index, value = event.split("#")
+                    prob = str(anomaly_data["Probability"][int(state_index)])
+                    event = value
+                else:
+                    prob = str("NA")
             else:
-                error_msg = "Call point %s at trace path seq %d" % (
-                    anomaly_data["Calls"][i], i)
+                prob = str(anomaly_data["Probability"][i])
+            # new message is set here
+            error_msg = "event: %s, prob: %s" % (event, prob)
             # set the trace point
             trace_point = {
                 "message": error_msg,

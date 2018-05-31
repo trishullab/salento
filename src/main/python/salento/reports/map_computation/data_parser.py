@@ -236,11 +236,7 @@ def create_location_list(test_file, state=False, key_list=None):
                     # state vector with end marker
                     state_vector = event['states'] + [END_MARKER]
                     for l, st in enumerate(state_vector):
-                        if l == len(state_vector) - 1:
-                            state_id = "End Marker %s" % st
-                        else:
-                            state_id = "%s with State index %d with value %d" % (
-                                call, l, st)
+                        state_id = str(l) + "#" + str(st)
                         location_list.insert(i + l + 1, location)
                         call_list.insert(i + l + 1, state_id)
 
