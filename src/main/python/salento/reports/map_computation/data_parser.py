@@ -31,7 +31,6 @@ import json
 
 END_MARKER = "STOP"
 
-
 class ProcessData(object):
     """ Takes in detailed probability call computes the metrics """
 
@@ -90,7 +89,11 @@ class ProcessData(object):
                 # add +1 to index to account for not using first prob
                 index_list = [x + 1 for x in index_list]
             else:
-                index_list, score = operator_type(combined_probability_vector)
+                try:
+                    index_list, score = operator_type(combined_probability_vector)
+                except:
+                    index_list = []
+                    score = float('-inf')
 
             self.aggregated_data[seq_key] = {
                 "Anomaly Score": score,
@@ -171,7 +174,10 @@ class ProcessStateData(ProcessData):
                     self.forward_obj[new_seq_key] = [0] * len(state_data)
                     self.event_list[new_seq_key] = [0] * len(state_data)
                     for key, value in state_data.items():
-                        self.forward_obj[new_seq_key][int(key[0])] = value
+                        prob_val = value["prob"]
+                        max_val =  value["max_value"]
+                        norm_val =  float(prob_val)/ float(max_val)
+                        self.forward_obj[new_seq_key][int(key[0])] = norm_val
                         self.event_list[new_seq_key][int(key[0])] = key
 
         # set the reverse
@@ -186,14 +192,17 @@ class ProcessStateData(ProcessData):
                         state_len = len(state_data)
                         self.reverse_obj[new_seq_key] = [0] * state_len
                         for key, value in state_data.items():
-                            self.reverse_obj[new_seq_key][int(key[0])] = value
+                            prob_val = value["prob"]
+                            max_val =  value["max_value"]
+                            norm_val =  float(prob_val)/ float(max_val)
+                            self.reverse_obj[new_seq_key][int(key[0])] = norm_val
             # reverse the states vector
             for key in self.reverse_obj:
                 self.reverse_obj[key].reverse()
             # check if the keys match
             assert set(self.forward_obj.keys()) == set(
                 self.reverse_obj.keys()), "Incompatible datasets" + str(set(self.forward_obj.keys()) - set(
-                self.reverse_obj.keys()), set(self.reverse_obj.keys()) - set(
+                self.reverse_obj.keys())) + str(set(self.reverse_obj.keys()) - set(
                 self.forward_obj.keys()))
 
 
