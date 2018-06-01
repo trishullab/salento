@@ -30,9 +30,42 @@
 import json
 import argparse
 import gc
+import collections
+import heapq
 # project imports
 import metric
 import data_parser
+
+
+class FilterTraces(object):
+    """ Implement different filtering options"""
+
+    @staticmethod
+    def filter_using_location(data, use_location=True):
+        """
+        :param data: input data list of dict
+        :return: filtered list of data points
+        """
+        valid_keys = set()
+        unit_dict = {}
+        for value in data:
+            # group by base key
+            key = value["key"]
+            unit_key = key.split('--')[0]
+            anomaly = value["Anomaly Score"]
+            location = [value["Location"][i] for i in value["Index List"]][0]
+            if unit_key not in unit_dict:
+                unit_dict[unit_key] = {}
+            if anomaly not in unit_dict[unit_key]:
+                unit_dict[unit_key][anomaly] = {location}
+                valid_keys.add(key)
+            # check if the locations match, if not add to valid key and add the location to list
+            else:
+                if use_location and location not in unit_dict[unit_key][anomaly]:
+                    valid_keys.add(key)
+                    unit_dict[unit_key][anomaly].add(location)
+
+        return [entry for entry in data if entry["key"] in valid_keys]
 
 
 class SarifFileGenerator(object):
@@ -41,7 +74,7 @@ class SarifFileGenerator(object):
     """
 
     def __init__(self, metric_choice, data_file_forward, data_file_backward,
-                 call, state, test_file):
+                 call, state, test_file, filter_proc):
         """
         :param metric_choice: the metric to use
         :param data_file_forward: files with forward probabilities
@@ -65,6 +98,8 @@ class SarifFileGenerator(object):
         self.call = call
         self.state = state
         self.metric = metric.METRICOPTION[metric_choice]
+        self.filter_proc = filter_proc
+        self.data_list = []
 
     def apply_metric(self):
         """
@@ -87,6 +122,7 @@ class SarifFileGenerator(object):
     def update_location(self, valid_key=None):
         """
             update location
+            @:param valid_key: list of keys to filter the data, useful get for once we need
         """
         # add location information
         location_dict = {}
@@ -95,78 +131,49 @@ class SarifFileGenerator(object):
                 self.test_file, self.state, valid_key)
         return location_dict
 
-    def get_all_data(self, filter_proc):
+    def generate_anomaly_data(self, limit):
         """
-            filter out traces that are not in
-        """
-        all_data = self.process_data.aggregated_data
-        if filter_proc is False:
-            return all_data
+        Reduce the data, apply metric, limit, update location, filter out
 
-        # pick the unique keys
-        temp_dict = {}
-        key_dict = {}
-        for key, value in all_data.items():
-            key_base = key.split('--')[0]
+        :param limit: limit the result (usually 100 times the sarif file limit)
+        """
+        # apply metric
+        self.apply_metric()
+        h = []
+        # reduce out to keep only the limited data
+
+        for key, value in self.process_data.aggregated_data.items():
+            value["key"] = key
             anomaly = value['Anomaly Score']
-            if key_base not in temp_dict:
-                temp_dict[key_base] = set([])
-                key_dict[key_base] = []
-                key_dict[key_base].append(key)
-                temp_dict[key_base].add(anomaly)
+            # add to heap below limit
+            if len(h) < limit:
+                heapq.heappush(h, (anomaly, value))
+            # remove after the limit
             else:
+                heapq.heappushpop(h, (anomaly, value))
 
-                if anomaly not in temp_dict[key_base]:
-                    key_dict[key_base].append(key)
-                    temp_dict[key_base].add(anomaly)
-
-        useful_key = set([])
-        for key, data in key_dict.items():
-            for x in data:
-                useful_key.add(x)
-        return {
-            key: value
-            for key, value in all_data.items() if key in useful_key
-        }
-
-    def create_sarif_data(self, limit, filter_proc):
-        """
-        create sarif acceptable data
-        :param limit:
-        :return:
-        """
-        all_data = self.get_all_data(filter_proc)
         # remove
         del self.process_data
         gc.collect()
-        data_list = []
-        for key, value in all_data.items():
-            value["key"] = key
-            data_list.append(value)
-        # sorted list
-        data_list = sorted(
-            data_list, key=lambda i: i['Anomaly Score'], reverse=True)
-        data_list = data_list[0:limit]
-        # add location to the top results
-        valid_keys = set([entry["key"] for entry in data_list])
-        location_dict = self.update_location(valid_keys)
+        # keep the sorted list
+        data_list = list(
+            reversed([heapq.heappop(h)[1] for _ in range(len(h))]))
+        # add the location
+        loc_key = [val["key"] for val in data_list]
+        location_dict = self.update_location(loc_key)
+        new_data = []
         for entry in data_list:
-            entry.update(location_dict.get(entry["key"], {}))
-        gc.collect()
+            loc_entry = location_dict.get(entry["key"], None)
+            if loc_entry:
+                entry.update(loc_entry)
+                new_data.append(entry)
+        data_list = new_data
 
-        tool_result = {"tool": {"name": "Salento"}}
-        results = []
-        count = 0
-        for i, data in enumerate(data_list):
-            try:
-                converted_data = self.cvt_trace_to_sarif(data)
-                results.append(converted_data)
-            except:
-                count += 1
-                pass
-        print("Error in %d out of %d" % (count, len(data_list)))
-        tool_result["results"] = results
-        self.sarif_data["runs"].append(tool_result)
+        # filtering
+        if self.filter_proc:
+            self.data_list = FilterTraces.filter_using_location(data_list)
+        else:
+            self.data_list = data_list
 
     def cvt_trace_to_sarif(self, anomaly_data):
         """
@@ -230,14 +237,26 @@ class SarifFileGenerator(object):
         sarif_results["locations"] = bug_locations
         return sarif_results
 
-    def write_anomaly_score(self, sarif_file, limit=100, filter_proc=False):
+    def write_anomaly_score(self, sarif_file, limit=100):
         """
         :param sarif_file: sarif files name
         :return:
         """
-        self.apply_metric()
 
-        self.create_sarif_data(limit, filter_proc)
+        self.generate_anomaly_data(limit * 100)
+        # apply
+        tool_result = {"tool": {"name": "Salento"}}
+        results = []
+        count = 0
+        for i, data in enumerate(self.data_list):
+            try:
+                converted_data = self.cvt_trace_to_sarif(data)
+                results.append(converted_data)
+            except:
+                count += 1
+        print("Error in %d out of %d" % (count, len(self.data_list)))
+        tool_result["results"] = results
+        self.sarif_data["runs"].append(tool_result)
         if sarif_file:
             with open(sarif_file, 'w') as fwrite:
                 json.dump(self.sarif_data, fwrite, indent=2)
@@ -274,10 +293,13 @@ if __name__ == "__main__":
         default=100,
         help="Limit the result to top N anomaly")
     parser.add_argument(
-        '--filter_proc', type=bool, default=False, help="Set True to filter use unique anomaly per procedure")
+        '--filter_proc',
+        type=bool,
+        default=False,
+        help="Set True to filter use unique anomaly per procedure")
     args = parser.parse_args()
 
     sarif_client = SarifFileGenerator(
         args.metric_choice, args.data_file_forward, args.data_file_backward,
-        args.call, args.state, args.test_file)
-    sarif_client.write_anomaly_score(args.result_file, args.limit, args.filter_proc)
+        args.call, args.state, args.test_file, args.filter_proc)
+    sarif_client.write_anomaly_score(args.result_file, args.limit)
