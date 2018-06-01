@@ -30,7 +30,6 @@
 import json
 import argparse
 import gc
-import collections
 import heapq
 # project imports
 import metric
@@ -43,7 +42,14 @@ class FilterTraces(object):
     @staticmethod
     def filter_using_location(data, use_location=True):
         """
-        :param data: input data list of dict
+        :param data: input data list of dict, with the following keys
+                ['Index List', // bug index
+                 'Location',   // location list
+                 'Calls',      // call/event list
+                 'key',        // unique key
+                 'Probability', // prob vector
+                 'Anomaly Score' // Anomaly Score
+                 ]
         :return: filtered list of data points
         """
         valid_keys = set()
