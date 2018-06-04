@@ -43,11 +43,11 @@ class FilterTraces(object):
     def filter_using_location(data):
         """
         :param data: input data list of dict, with the following keys
-                ['Index List', // index of the location at which the anomaly is lowest
-                 'Location',   // location list
-                 'Calls',      // call/event list
-                 'key',        // unique key to identify the vec
-                 'Probability', // prob vector associated with the events
+                ['Index List', // subset of the location at which the anomaly is lowest
+                 'Location',   // list of all locations for each events
+                 'Calls',      // list  of all events [not used in this function]
+                 'key',        // unique key to identify this trace path or event sequence
+                 'Probability', // prob vector associated with the events of interest( calls or states) [not used in this function]
                  'Anomaly Score' // Anomaly Score
                  ]
         :return: filtered list of data points
@@ -73,7 +73,7 @@ class FilterTraces(object):
         # filter to get max anomaly at a location
         for unit_key, value in unit_dict.items():
             for location in value:
-                # tuple of anomaly score and key
+                # tuple of anomaly score and key, where max is done on first element(anomaly)
                 max_anomaly = max(value[location])
                 # add the valid key
                 valid_keys.add(max_anomaly[1])
