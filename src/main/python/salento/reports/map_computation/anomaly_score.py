@@ -40,37 +40,43 @@ class FilterTraces(object):
     """ Implement different filtering options"""
 
     @staticmethod
-    def filter_using_location(data, use_location=True):
+    def filter_using_location(data):
         """
         :param data: input data list of dict, with the following keys
-                ['Index List', // bug index
+                ['Index List', // index of the location at which the anomaly is lowest
                  'Location',   // location list
                  'Calls',      // call/event list
-                 'key',        // unique key
-                 'Probability', // prob vector
+                 'key',        // unique key to identify the vec
+                 'Probability', // prob vector associated with the events
                  'Anomaly Score' // Anomaly Score
                  ]
         :return: filtered list of data points
         """
-        valid_keys = set()
+
         unit_dict = {}
         for value in data:
             # group by base key
             key = value["key"]
             unit_key = key.split('--')[0]
-            anomaly = value["Anomaly Score"]
-            location = [value["Location"][i] for i in value["Index List"]][0]
             if unit_key not in unit_dict:
                 unit_dict[unit_key] = {}
-            if anomaly not in unit_dict[unit_key]:
-                unit_dict[unit_key][anomaly] = {location}
-                valid_keys.add(key)
-            # check if the locations match, if not add to valid key and add the location to list
-            else:
-                if use_location and location not in unit_dict[unit_key][anomaly]:
-                    valid_keys.add(key)
-                    unit_dict[unit_key][anomaly].add(location)
 
+            anomaly = value["Anomaly Score"]
+            for index in value["Index List"]:
+                location = value["Location"][index]
+                if location not in unit_dict[unit_key]:
+                    unit_dict[unit_key][location] = set([])
+                # add the anomaly to the location
+                unit_dict[unit_key][location].add((anomaly, key))
+
+        valid_keys = set()
+        # filter to get max anomaly at a location
+        for unit_key, value in unit_dict.items():
+            for location in value:
+                # tuple of anomaly score and key
+                max_anomaly = max(value[location])
+                # add the valid key
+                valid_keys.add(max_anomaly[1])
         return [entry for entry in data if entry["key"] in valid_keys]
 
 
