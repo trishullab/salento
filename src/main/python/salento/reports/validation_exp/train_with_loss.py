@@ -23,6 +23,9 @@ import sys
 import json
 import textwrap
 
+import ray
+import ray.tune as tune
+
 from salento.models.low_level_evidences.data_reader import Reader, smart_open
 from salento.models.low_level_evidences.model import Model
 from salento.models.low_level_evidences.utils import read_config, dump_config
@@ -55,30 +58,25 @@ Config options should be given as a JSON file (see config.json for example):
 }                                         |
 """
 
+def trainer(cnfg, reporter):
+   """
+   :param cnfg: a dictionary of configuration
+   :param reporter: ray reporter for logging value, passed by the tuner decorator, user has to do nothing
+   """
 
-
-
-
-def train(clargs):
-    config_file = clargs.config if clargs.continue_from is None \
-                                else os.path.join(clargs.continue_from, 'config.json')
-    with open(config_file) as f:
-        config = read_config(json.load(f), chars_vocab=clargs.continue_from)
+    dict_ext = str(hash(frozenset(cnfg)))
+    # update the name
+    clargs.save += dict_ext
+    pattern_loss.model_dir = clargs.save
+    # create model dir
+    os.mkdir(clargs.save)
+    # update config
+    config = read_config(cnfg, chars_vocab=clargs.continue_from)
     reader = Reader(clargs, config)
-    
-    jsconfig = dump_config(config)
-    print(clargs)
-    print(json.dumps(jsconfig, indent=2))
+    # write the config
     with open(os.path.join(clargs.save, 'config.json'), 'w') as f:
-        json.dump(jsconfig, fp=f, indent=2)
-
-    # make the training directory
-    train_loss_dir = os.path.join(clargs.save, 'training_loss')
-    if not os.path.exists(train_loss_dir):
-        os.mkdir(train_loss_dir)
-    # set the external loss
-    pattern_loss = ExternalLoss.PatternLoss(clargs.save, clargs.good_pattern_file, clargs.bad_pattern_file)
-
+        json.dump(dump_config(config), fp=f, indent=2)
+    # set the model
     model = Model(config)
 
     with tf.Session() as sess:
@@ -98,7 +96,7 @@ def train(clargs):
             avg_loss = avg_evidence = avg_latent = avg_generation = 0
             for b in range(config.num_batches):
                 start = time.time()
-                
+
                 # setup the feed dict
                 ev_data, n, e, y = reader.next_batch()
                 feed = {model.targets: y}
@@ -136,13 +134,9 @@ def train(clargs):
                            end - start))
             checkpoint_dir = os.path.join(clargs.save, 'model{}.ckpt'.format(i))
             saver.save(sess, checkpoint_dir)
+
             ext_loss = pattern_loss.loss_func()
-            loss_tracker = {"epoch_id" : i,
-                            "evidence_loss": avg_evidence / config.num_batches,
-                            "latent_loss": avg_latent / config.num_batches,
-                            "generation_loss": avg_generation / config.num_batches,
-                            "opt_loss": avg_loss / config.num_batches,
-                            "external_loss": ext_loss}
+            print(ext_loss)
 
             print('Model checkpointed: {}. Average for epoch evidence: {:.3f}, latent: {:.3f}, '
                   'generation: {:.3f}, loss: {:.3f}, ext_loss: {:.3f}'.format
@@ -152,10 +146,7 @@ def train(clargs):
                    avg_generation / config.num_batches,
                    avg_loss / config.num_batches,
                    ext_loss))
-            # write out the losses to a file to be picked by the validation system
-            loss_file = os.path.join(train_loss_dir, 'train_loss_%d.json' % i)
-            with open(loss_file, 'w') as fout:
-                json.dump(loss_tracker, fout)
+            reporter(timesteps_total=i, mean_validation_accuracy=ext_loss)
 
 
 if __name__ == '__main__':
@@ -175,10 +166,57 @@ if __name__ == '__main__':
             help='good pattern file with schema pattern_file_schema.json')
     parser.add_argument('--bad_pattern_file', type=str,
             help='bad patterns file with schema pattern_file_schema.json')
+    parser.add_argument('--state', type=bool,
+            help='set true for state')
+    parser.add_argument('--call', type=bool,
+            help='set true for call')
     clargs = parser.parse_args()
     sys.setrecursionlimit(clargs.python_recursion_limit)
     if clargs.config and clargs.continue_from:
         parser.error('Do not provide --config if you are continuing from checkpointed model')
     if not clargs.config and not clargs.continue_from:
         parser.error('Provide at least one option: --config or --continue_from')
-    train(clargs)
+
+    # TODO this should be passed as command line option. Refactor this in next iteration
+    basic_config = {
+    "model": "lle",
+    "learning_rate": tune.grid_search([0.0001, 0.001, 0.01]),
+    "latent_size": 32,
+    "batch_size":  tune.grid_search([25, 50, 100]),
+    "num_epochs": 5,
+    "print_step": 100,
+    "alpha": 0,
+    "beta": 0,
+    "evidence": [
+        {
+            "name": "apicalls",
+            "units": tune.grid_search([16, 32]),
+            "num_layers": tune.grid_search([1, 2, 3]),
+            "tile": 1
+        }
+    ],
+    "decoder": {
+        "units": tune.grid_search([16, 32]),
+        "num_layers": tune.grid_search([1, 2, 3]),
+        "max_seq_length": tune.grid_search([16, 32])
+    }
+    }
+
+    pattern_loss = ExternalLoss.PatternLoss(clargs.save, clargs.good_pattern_file, clargs.bad_pattern_file)
+    if clargs.call:
+        pattern_loss.call = True
+    if clargs.state:
+        pattern_loss.state = True
+
+    ray.init(num_cpus=1, num_gpus=0)
+    tune.register_trainable("train_func", trainer)
+
+    tune.run_experiments({
+        "my_experiment": {
+        "run": "train_func",
+        "repeat" : 1,
+        "stop": {"mean_validation_accuracy": 0.00., 'timesteps_total':4},
+        "config": basic_config,
+        "local_dir": "ray_results",
+        }
+    }, )

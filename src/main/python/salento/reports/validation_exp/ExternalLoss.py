@@ -65,24 +65,17 @@ class PatternLoss(object):
         :param evidence_file: the extracted evidence file
         :return:
         """
-        data_file = '/tmp/data.json'
+
         with open(pattern_file, 'r') as fread:
             data = json.load(fread)
 
-        with open(data_file, 'w') as fout:
-            data_to_write = {"packages": [{"data": data['traces']}]}
-            json.dump(data_to_write, fout)
 
         # cvt to evidence file
         evidence_extractor_py = os.path.join(
             os.path.dirname(__file__),
             "../../../scripts/evidence_extractor.py")
-        cmd = ["python3", evidence_extractor_py, data_file, evidence_file]
+        cmd = ["python3", evidence_extractor_py, pattern_file, evidence_file]
         subprocess.check_call(cmd)
-        if data['event'] == 'call':
-            self.call = True
-        elif data['event'] == 'state':
-            self.state = True
 
     def get_anomaly_score(self, evidence_file):
         """
@@ -97,7 +90,7 @@ class PatternLoss(object):
         prob_file = '/tmp/prob_file.json'
         cmd = [
             'python3', get_raw_prob_py, '--data_file', evidence_file,
-            '--model_dir', self.model_dir
+            '--model_dir', self.model_dir, '--normalize', 'True'
         ]
         if self.call:
             cmd.append('--call_prob_file')
@@ -130,6 +123,10 @@ class PatternLoss(object):
         good_anomaly = self.get_anomaly_score(self.good_pattern_evidence_file)
         bad_anomaly = self.get_anomaly_score(self.bad_pattern_evidence_file)
 
-        loss = sum([abs(x - y) for x in bad_anomaly for y in good_anomaly]) / (
-            len(bad_anomaly) * len(good_anomaly))
+        try :
+            loss = 1 - sum([abs(x - y) for x in bad_anomaly for y in good_anomaly]) / (
+                len(bad_anomaly) * len(good_anomaly))
+        except ZeroDivisionError:
+            loss = float('inf')
+
         return loss
