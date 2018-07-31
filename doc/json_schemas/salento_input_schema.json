@@ -28,7 +28,7 @@
                                                 "type": "array", 
                                                 "description": "Boolean vector abstracting program state at this call site", 
                                                 "items": {
-                                                    "enum": [0, 1]
+                                                    "type": "integer"
                                                 }
                                             }, 
                                             "location": {
